@@ -1,0 +1,32 @@
+name: Desktop checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - run: npm test
+      - run: npm run build
+      - run: npm run prepare:runtimes
+      - run: node scripts/check-runtimes.cjs
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aegis-${{ runner.os }}-${{ runner.arch }}
+          path: release/
+

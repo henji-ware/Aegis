@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+.aegis-test/
+*.log
+*.conf
+*.key
+*.db
+
+.build/
+resources/
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+state.json*

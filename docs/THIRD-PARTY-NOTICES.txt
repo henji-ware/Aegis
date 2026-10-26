@@ -1,0 +1,52 @@
+AEGIS 0.1.0 — COMPONENTES E PROCEDÊNCIA
+
+O código original do Aegis está sob licença MIT (arquivo LICENSE).
+Mecanismos são processos separados; suas próprias licenças permanecem aplicáveis.
+Não há pagamento, assinatura, anúncios ou recurso premium no Aegis.
+
+Electron 45.0.0 — MIT
+https://github.com/electron/electron
+LICENSE e LICENSES.chromium.html acompanham o executável. O Chromium contém
+componentes sob diversas licenças, preservadas nesse arquivo.
+
+React / React DOM 19.3.1 / Scheduler — MIT
+https://github.com/facebook/react
+Three.js 0.186.1 — MIT
+https://github.com/mrdoob/three.js
+Lucide React — ISC
+https://github.com/lucide-icons/lucide
+Os textos completos estão em UI-LICENSES.txt, dentro de resources.
+
+ClamAV 1.5.4 — GPL-2.0 e componentes conforme COPYING
+Distribuição oficial: https://www.clamav.net/downloads
+Fonte correspondente:
+https://github.com/Cisco-Talos/clamav/releases/download/clamav-1.5.4/clamav-1.5.4.tar.gz
+Licenças preservadas em resources/clamav/COPYING.txt e resources/clamav/COPYING/.
+Os módulos libclamunrar e libclamunrar_iface NÃO são incluídos no pacote final:
+a licença do UnRAR tem restrições incompatíveis com software livre.
+A análise interna de arquivos RAR, portanto, não é oferecida.
+Bibliotecas de suporte do Windows, quando fornecidas na distribuição oficial,
+mantêm os termos de redistribuição do respectivo fornecedor (runtime do sistema).
+As bases de assinaturas não acompanham esta distribuição. O FreshClam as obtém
+do serviço oficial do ClamAV e verifica as assinaturas digitais.
+
+Tor Expert Bundle 15.0.26 / Tor 0.4.9.14
+https://dist.torproject.org/torbrowser/15.0.26/
+Licenças completas preservadas em resources/tor/docs/.
+A licença indicada pelo próprio binário e as de suas bibliotecas prevalecem.
+Código-fonte e receitas de compilação do Expert Bundle:
+https://gitlab.torproject.org/tpo/applications/tor-browser-build/-/tree/tbb-15.0.26-build1
+https://dist.torproject.org/tor-0.4.9.14.tar.gz
+Nenhum binário do Tor é modificado pelo Aegis.
+
+WireGuard for Windows 1.1.1 / wireguard-tools v1.0.20260223 — termos do projeto
+https://git.zx2c4.com/wireguard-windows/
+https://git.zx2c4.com/wireguard-tools/
+COPYING é preservado em resources/wireguard.
+Instalador oficial verificado antes da extração; nenhum serviço é instalado pelo
+processo de compilação. A ativação de túneis ocorre somente por ação do usuário.
+
+runtimes.json fixa nomes, versões, origens e SHA-256 dos arquivos oficiais.
+Verifique os avisos de todos os componentes e distribua suas fontes e licenças
+correspondentes junto de qualquer nova publicação dos binários.
+
