@@ -190,3 +190,7 @@ ambiente; macOS e Linux ainda precisam de homologação nativa.
 - Bibliotecas do Tor são localizadas dentro do bundle no Linux.
 - Cópias ClamAV desreferenciam links para evitar dependências do diretório de extração.
 - A CI também verifica os mecanismos dentro do pacote final.
+
+Empacotador atualizado para @electron/packager 20.3.0; npm audit não apontou
+vulnerabilidades na verificação desta sessão. O pacote verifica também se links
+de bibliotecas escapam do diretório de distribuição.

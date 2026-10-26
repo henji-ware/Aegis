@@ -14,7 +14,7 @@ const root=path.resolve(__dirname,'..');
   const source=path.join(root,'resources',name),target=path.join(runtime,name);
   try{
    await fs.access(source);
-   await fs.cp(source,target,{recursive:true,filter:entry=>{
+   await fs.cp(source,target,{recursive:true,dereference:true,filter:entry=>{
     const base=path.basename(entry);
     // No restricted UnRAR module is distributed. Keep the scanning/updating tools only.
     if(/unrar/i.test(base))return false;
