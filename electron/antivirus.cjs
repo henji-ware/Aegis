@@ -7,13 +7,14 @@ const {spawn,run,exists,findTool}=require('./runner.cjs');
 const {publicError}=require('./validation.cjs');
 const {ClamOutput}=require('./clam-output.cjs');
 const {StringDecoder}=require('node:string_decoder');
+const {runtimeEnv}=require('./runtime-env.cjs');
 class Antivirus {
   constructor({store, resources, emit,quickTargets}) {
     this.store=store; this.resources=resources; this.emit=emit;
     this.db=path.join(store.dir,'signatures');
     this.job=null; this.child=null; this.pending='';this.starting=false;this.quickTargets=quickTargets;
   }
-  env() { const env={...process.env}; if(process.platform==='linux')env.LD_LIBRARY_PATH=[path.join(this.resources,'clamav','lib'),path.join(this.resources,'clamav','lib64'),path.join(this.resources,'clamav','usr','local','lib'),env.LD_LIBRARY_PATH].filter(Boolean).join(':'); if(process.platform==='darwin')env.DYLD_LIBRARY_PATH=[path.join(this.resources,'clamav','lib'),env.DYLD_LIBRARY_PATH].filter(Boolean).join(':'); return env; }
+  env() { return runtimeEnv('clamav',this.resources); }
   async binaries() {
     const ext=process.platform==='win32'?'.exe':'';
     const directories=[path.join(this.resources,'clamav'), path.join(this.resources,'clamav','bin'), path.join(this.resources,'clamav','usr','local','bin')];

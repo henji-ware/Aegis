@@ -16,11 +16,13 @@ async function download(url,name,hash){
   return file;
 }
 async function zip(file,dir){await fs.mkdir(dir,{recursive:true});await ps('Expand-Archive -LiteralPath '+quote(file)+' -DestinationPath '+quote(dir)+' -Force');}
-async function findClamRoot(dir,depth=0){
- if(depth>9)return null;
- try{await fs.access(path.join(dir,'bin','clamscan'));return dir;}catch{}
- for(const item of await fs.readdir(dir,{withFileTypes:true}))if(item.isDirectory()){const found=await findClamRoot(path.join(dir,item.name),depth+1);if(found)return found;}
- return null;
+async function findClamRoots(dir,depth=0){
+ if(depth>9)return [];
+ // Product packages can split programs, libraries and documentation into separate payloads.
+ let program=false;try{await fs.access(path.join(dir,'bin','clamscan'));program=true;}catch{}
+ if(program||path.basename(dir)==='clamav'&&path.basename(path.dirname(dir))==='local')return [dir];
+ const roots=[];for(const item of await fs.readdir(dir,{withFileTypes:true}))if(item.isDirectory())roots.push(...await findClamRoots(path.join(dir,item.name),depth+1));
+ return roots;
 }
 function cabinetFromMsi(data){
  if(data.subarray(0,8).toString('hex')!=='d0cf11e0a1b11ae1')throw new Error('Contêiner MSI inválido.');
@@ -67,14 +69,14 @@ async function prepare(){
  }else{
   if(platform==='linux'){await fs.mkdir(extracted,{recursive:true});await run('/usr/bin/dpkg-deb',['-x',file,extracted]);}
   else{await run('/usr/sbin/pkgutil',['--expand-full',file,extracted]);}
-  const base=await findClamRoot(extracted);if(!base)throw new Error('Estrutura ClamAV desconhecida.');
-  await fs.cp(base,path.join(resources,'clamav'),{recursive:true,filter:file=>!/unrar/i.test(path.basename(file))});
+  const bases=await findClamRoots(extracted);if(!bases.length)throw new Error('Estrutura ClamAV desconhecida.');
+  for(const base of bases)await fs.cp(base,path.join(resources,'clamav'),{recursive:true,dereference:true,filter:file=>!/unrar/i.test(path.basename(file))});
   if(platform==='darwin')await relocateMac(path.join(resources,'clamav'));
  }
  const torFile=await download(manifest.tor.base+tor.name,tor.name,tor.sha256),torDir=path.join(resources,'tor');
  await fs.mkdir(torDir,{recursive:true});await run(platform==='win32'?'tar':'/usr/bin/tar',['-xzf',torFile,'-C',torDir]);
  console.log('Mecanismos preparados para '+key+'. Nenhum serviço foi instalado e nenhuma configuração de rede foi alterada.');
 }
-module.exports={cabinetFromMsi};
+module.exports={cabinetFromMsi,findClamRoots};
 if(require.main===module)prepare().catch(e=>{console.error(e.message);process.exitCode=1;});
 

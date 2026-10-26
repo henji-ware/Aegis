@@ -5,6 +5,7 @@ const runner=require('./runner.cjs');
 const{spawn,findTool,exists}=runner;
 const{validateProfile,publicError}=require('./validation.cjs');
 const{protectScript}=require('./dpapi.cjs');
+const{runtimeEnv}=require('./runtime-env.cjs');
 class Privacy{
  constructor({store,safeStorage,resources,emit,platform=process.platform,operations=runner,io=fs,networkInterfaces=os.networkInterfaces}){
   Object.assign(this,{store,safeStorage,resources,emit,platform,ops:operations,io,networkInterfaces});
@@ -129,7 +130,7 @@ class Privacy{
     if(await exists(geo))args.push('--GeoIPFile',geo);if(await exists(geo6))args.push('--GeoIPv6File',geo6);
     if(this.torCancelRequested)throw new Error('Operação cancelada.');
     this.tor={state:'starting',progress:0,port,lines:[]};
-    const child=spawn(binary,args,{windowsHide:true,stdio:['ignore','pipe','pipe']});this.torChild=child;
+    const child=spawn(binary,args,{windowsHide:true,stdio:['ignore','pipe','pipe'],env:runtimeEnv('tor',this.resources,this.platform)});this.torChild=child;
     let pending='';
     const accept=chunk=>{
       pending+=chunk.toString();const parts=pending.split(/\r?\n/);pending=parts.pop()||'';

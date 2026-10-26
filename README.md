@@ -163,14 +163,14 @@ Veja LICENSE e docs/THIRD-PARTY-NOTICES.txt.
 - Backup de estado, recuperação de arquivo corrompido e uma instância por perfil.
 - Parsers de rede Linux/macOS e identificação de interfaces utun.
 - Workflow de CI para Windows, Linux e macOS em .github/workflows/desktop.yml.
-  O workflow foi preparado como código; não foi executado em serviço externo nesta sessão.
+  As execuções do workflow estão disponíveis na aba Actions do repositório.
 
 ## Alterações em 0.2.1
 
 - Consultas somente de leitura para Smart App Control, VBS e integridade da memória.
 - Estados indisponíveis, desativados, em avaliação e em execução tratados separadamente.
 - Documentação da causa confirmada do bloqueio do executável no Windows.
-- 37 testes automatizados aprovados e compilação TypeScript/Vite concluída.
+- 39 testes automatizados aprovados e compilação TypeScript/Vite concluída.
 
 ## Execução do pacote Windows nesta sessão
 
@@ -183,3 +183,10 @@ Nenhuma política foi alterada nem certificado instalado para contornar o bloque
 Os testes de integração executam o código com o runtime oficial de desenvolvimento
 do Electron. Os pacotes Windows permanecem sem validação de execução final neste
 ambiente; macOS e Linux ainda precisam de homologação nativa.
+
+## Ajustes após a primeira execução da CI
+
+- O preparador macOS reúne os payloads separados de bibliotecas, programas e documentação do ClamAV.
+- Bibliotecas do Tor são localizadas dentro do bundle no Linux.
+- Cópias ClamAV desreferenciam links para evitar dependências do diretório de extração.
+- A CI também verifica os mecanismos dentro do pacote final.

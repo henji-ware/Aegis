@@ -2,7 +2,7 @@
 
 26 de outubro de 2026.
 
-- 37 testes automatizados: todos passaram.
+- 39 testes automatizados: todos passaram.
 - Fluxos controlados de VPN em Windows, macOS e Linux: conexão, desconexão,
   falha conhecida, estado incerto, proteção de caminhos e exclusão mútua.
 - Firewall: restauração da política Windows, recuperação de reforço parcial
@@ -31,8 +31,8 @@ distribuído mantém o sandbox do renderer e não recebe esse parâmetro.
 
 Não foram aplicadas regras ao firewall do computador do usuário nem ativados
 túneis VPN no host. Não houve homologação nativa macOS/Linux: seus adaptadores
-foram exercitados com fixtures e operações controladas. A CI para esses sistemas
-está preparada, mas não foi disparada em serviço externo nesta sessão.
+foram exercitados com fixtures e operações controladas. A CI desses sistemas já foi disparada no GitHub. Consulte as execuções na aba
+Actions; elas não homologam mudanças administrativas de firewall e VPN.
 Não foram anunciados kill switch, ausência de vazamentos ou proteção em tempo real.
 
 
@@ -51,3 +51,10 @@ Nenhuma política de segurança foi alterada.
 Testes adicionais cobrem estados de imposição, avaliação e auditoria, VBS
 configurada sem execução, HVCI em execução, acesso negado e valores desconhecidos.
 As três consultas são somente de leitura e não solicitam elevação.
+
+## Ajustes após a primeira execução da CI
+
+- O preparador macOS reúne os payloads separados de bibliotecas, programas e documentação do ClamAV.
+- Bibliotecas do Tor são localizadas dentro do bundle no Linux.
+- Cópias ClamAV desreferenciam links para evitar dependências do diretório de extração.
+- A CI também verifica os mecanismos dentro do pacote final.
