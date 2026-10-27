@@ -212,9 +212,14 @@ pub fn observe(active: &Value) -> Value {
         } else {
             t.to_string()
         };
-        let interfaces = get_if_addrs::get_if_addrs().map_err(|e| e.to_string())?;
-        let present = interfaces.iter().any(|i| i.name == name);
-        Ok(json!({"present":present,"interfaceActive":present,"interfaceName":name}))
+        let interfaces = sysinfo::Networks::new_with_refreshed_list();
+        if interfaces.is_empty() {
+            return Err("network-status-unavailable".into());
+        }
+        let found = interfaces.iter().find(|(interface, _)| *interface == &name);
+        let present = found.is_some();
+        let active = found.is_some_and(|(_, data)| !data.ip_networks().is_empty());
+        Ok(json!({"present":present,"interfaceActive":active,"interfaceName":name}))
     })();
     result.unwrap_or_else(|e| json!({"present":null,"interfaceActive":null,"error":e}))
 }
