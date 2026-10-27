@@ -60,7 +60,7 @@ pub fn settings(value: &Value) -> Result<()> {
     Ok(())
 }
 pub fn parse(text: &str) -> Result<Value> {
-    let mut value: Value =
+    let value: Value =
         serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| e.to_string())?;
     if value["version"] != 2 {
         return Err("unsupported-store-version".into());
@@ -71,12 +71,6 @@ pub fn parse(text: &str) -> Result<Value> {
         }
     }
     settings(&value["settings"])?;
-    for s in value["scans"].as_array_mut().unwrap() {
-        if matches!(s["state"].as_str(), Some("running" | "cancelling")) {
-            s["state"] = json!("interrupted");
-        }
-    }
-    value["activeScan"] = Value::Null;
     Ok(value)
 }
 pub struct Store {
@@ -112,6 +106,16 @@ impl Store {
                     result.save()?;
                 }
             }
+        }
+        if !result.data["activeScan"].is_null() {
+            let mut scan = result.data["activeScan"].take();
+            scan["state"] = json!("interrupted");
+            scan["endedAt"] = json!(now());
+            if scan["summary"].is_object() {
+                scan["summary"]["partial"] = json!(true);
+            }
+            result.data["scans"].as_array_mut().unwrap().insert(0, scan);
+            result.save()?;
         }
         Ok(result)
     }

@@ -148,7 +148,7 @@ pub fn error(detail: &str) -> Value {
         .chars()
         .take(1400)
         .collect::<String>();
-    json!({"code":if detail=="cancelled"{"cancelled"}else{detail},"original":safe})
+    json!({"code":if detail=="cancelled"{"cancelled"}else if detail.len()<=64&&detail.chars().all(|c|c.is_ascii_lowercase()||c=='-'){detail}else{"operation-failed"},"original":safe})
 }
 #[cfg(test)]
 mod tests {

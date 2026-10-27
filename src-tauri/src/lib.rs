@@ -1,5 +1,6 @@
 mod antivirus;
 mod audit;
+mod firewall;
 mod localization;
 mod network;
 mod platform;
@@ -163,15 +164,7 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
         "av:scan" => {
             let kind = payload["type"].as_str().ok_or("invalid-scan-type")?;
             let path = if kind == "custom" {
-                let folder = app
-                    .dialog()
-                    .message(localization::tx(core, "Escolha o que deseja verificar"))
-                    .title("Aegis")
-                    .buttons(MessageDialogButtons::OkCancelCustom(
-                        localization::tx(core, "Pasta"),
-                        localization::tx(core, "Arquivo"),
-                    ))
-                    .blocking_show();
+                let folder = payload["selection"] == "folder";
                 match selected(app, core, "Escolha o que deseja verificar", folder)? {
                     Some(path) => Some(path),
                     None => return Ok(Value::Null),
@@ -413,6 +406,30 @@ fn migrate(core: &Core) {
                                 if store::settings(&data["settings"]).is_ok() {
                                     s.data["settings"] = data["settings"].clone();
                                 }
+                                if let Some(tunnel) =
+                                    data["activeVpn"]["tunnel"].as_str().filter(|t| {
+                                        regex::Regex::new("^ag[a-f0-9]{10}$").unwrap().is_match(t)
+                                    })
+                                {
+                                    let name = format!(
+                                        "{tunnel}.conf{}",
+                                        if cfg!(windows) { ".dpapi" } else { "" }
+                                    );
+                                    let old_file = old.join("tunnels").join(&name);
+                                    let new_dir = core.dir.join("tunnels");
+                                    let _ = store::private_dir(&new_dir);
+                                    if let Ok(bytes) = std::fs::read(old_file) {
+                                        if bytes.len() <= 131072 {
+                                            let _ = store::write_private(
+                                                &new_dir.join(&name),
+                                                &bytes,
+                                                true,
+                                            );
+                                        }
+                                    }
+                                    s.data["activeVpn"] = data["activeVpn"].clone();
+                                    s.data["activeVpn"]["pending"] = json!(true);
+                                }
                                 s.recovery=Some("Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.".into());
                                 let _ = s.save();
                             }
@@ -441,7 +458,92 @@ pub fn run() {
                 if let Some(child) = slot.as_mut() {
                     let _ = child.kill();
                 }
-            }
+            };
         }
     });
+}
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+    #[test]
+    fn interrupted_scan_remains_in_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = store::Store::open(dir.path().into()).unwrap();
+        s.data["activeScan"] = json!({"id":"pending","state":"running","type":"custom","startedAt":store::now(),"lines":[],"summary":{"infected":1,"threats":[{"path":"test","name":"test"}]}});
+        s.save().unwrap();
+        drop(s);
+        let restored = store::Store::open(dir.path().into()).unwrap();
+        assert!(restored.data["activeScan"].is_null());
+        assert_eq!(restored.data["scans"][0]["state"], "interrupted");
+        assert_eq!(restored.data["scans"][0]["summary"]["infected"], 1);
+    }
+    #[test]
+    fn native_engines_and_read_only_queries() {
+        let Some(dir) = std::env::var_os("AEGIS_NATIVE_TEST_RESOURCES") else {
+            return;
+        };
+        let resources = PathBuf::from(dir).canonicalize().unwrap();
+        let temporary = tempfile::tempdir().unwrap();
+        let core = Core::new(temporary.path().to_path_buf(), resources).unwrap();
+        let scanner =
+            runner::engine(&core.resources, "clamav", "clamscan").expect("ClamAV must be bundled");
+        let version = runner::capture(
+            &scanner,
+            &["--version".into()],
+            20,
+            None,
+            &runner::runtime_env(&core.resources, "clamav"),
+        )
+        .unwrap();
+        assert_eq!(version.code, 0);
+        assert!(version.text.contains("ClamAV"));
+        let tor = runner::engine(&core.resources, "tor", "tor").expect("Tor must be bundled");
+        assert_eq!(
+            runner::capture(
+                &tor,
+                &["--version".into()],
+                20,
+                None,
+                &runner::runtime_env(&core.resources, "tor")
+            )
+            .unwrap()
+            .code,
+            0
+        );
+        let fixture = temporary.path().join("clean-fixture.txt");
+        std::fs::write(&fixture, "aegis-native-test-fixture").unwrap();
+        let db = temporary.path().join("fixture.ndb");
+        std::fs::write(
+            &db,
+            "Aegis.Native.Test:0:*:61656769732d6e61746976652d746573742d66697874757265\n",
+        )
+        .unwrap();
+        let output = runner::capture(
+            &scanner,
+            &[
+                format!("--database={}", db.display()),
+                "--infected".into(),
+                "--stdout".into(),
+                "--".into(),
+                fixture.to_string_lossy().into_owned(),
+            ],
+            30,
+            None,
+            &runner::runtime_env(&core.resources, "clamav"),
+        )
+        .unwrap();
+        assert_eq!(output.code, 1, "{}", output.text);
+        let mut parsed = antivirus::ScanOutput::default();
+        for line in output.text.lines() {
+            parsed.accept(line);
+        }
+        assert_eq!(parsed.result(output.code)["infected"], 1);
+        assert_eq!(parsed.result(output.code)["state"], "threats");
+        assert!(platform::system()["memory"].as_u64().unwrap() > 0);
+        let rows = platform::connections().expect("native TCP enumeration");
+        for r in rows {
+            assert_eq!(r["protocol"], "TCP");
+        }
+        let _ = platform::guard();
+    }
 }
