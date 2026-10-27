@@ -52,6 +52,8 @@ jobs:
       - run: node scripts/rust-notices.cjs
       - run: npm run package -- --verbose --bundles ${{ matrix.bundles }}
       - run: node scripts/check-installers.cjs
+      - if: runner.os == 'Windows'
+        run: node scripts/test-native-windows.cjs
       - if: runner.os == 'Linux'
         name: Validate Debian 13 installation dependencies
         shell: bash

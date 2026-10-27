@@ -138,6 +138,7 @@ pub fn start(
     {
         return Err("antivirus-busy".into());
     }
+    core.scan_cancel.store(false, Ordering::SeqCst);
     let started = start_inner(core, app, kind, selected);
     if started.is_err() {
         core.scan_busy.store(false, Ordering::SeqCst);
@@ -241,13 +242,17 @@ fn start_inner(
     for (k, v) in runtime_env(&core.resources, "clamav") {
         cmd.env(k, v);
     }
+    let mut slot = core.scan_child.lock().map_err(|_| "process-lock")?;
+    if core.scan_cancel.load(Ordering::SeqCst) || core.closing.load(Ordering::SeqCst) {
+        return Err("cancelled".into());
+    }
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("missing-process-output")?;
     let stderr = child.stderr.take().ok_or("missing-process-output")?;
     let job = json!({"id":store::id(),"type":kind,"state":"running","startedAt":store::now(),"targets":targets,"lines":[]});
     *core.job.lock().map_err(|_| "job-lock")? = job.clone();
-    core.scan_cancel.store(false, Ordering::SeqCst);
-    *core.scan_child.lock().map_err(|_| "process-lock")? = Some(child);
+    *slot = Some(child);
+    drop(slot);
     {
         let mut store = core.store.lock().map_err(|_| "state-lock")?;
         store.data["activeScan"] = job.clone();
@@ -289,6 +294,7 @@ fn start_inner(
     thread::spawn(move || {
         let mut output = ScanOutput::default();
         let mut exit = None;
+        let mut checkpoint = std::time::Instant::now();
         loop {
             while let Ok(line) = rx.try_recv() {
                 output.accept(&line);
@@ -316,6 +322,28 @@ fn start_inner(
             }
             if exit.is_some() {
                 break;
+            }
+            if checkpoint.elapsed() >= Duration::from_secs(2) {
+                let snapshot = state.job.lock().ok().map(|mut job| {
+                    if task_type != "update" {
+                        let mut progress = output.result(2);
+                        progress["partial"] = json!(output.partial);
+                        progress["state"] = json!("running");
+                        job["summary"] = progress;
+                    }
+                    job.clone()
+                });
+                if let Some(snapshot) = snapshot {
+                    if let Ok(mut store) = state.store.lock() {
+                        store.data["activeScan"] = snapshot;
+                        if store.save().is_err() {
+                            if let Ok(mut job) = state.job.lock() {
+                                job["persistenceError"] = json!("result-not-saved");
+                            }
+                        }
+                    }
+                }
+                checkpoint = std::time::Instant::now();
             }
             if let Ok(job) = state.job.lock() {
                 let _ = handle.emit(
@@ -373,7 +401,7 @@ fn start_inner(
                         } else {
                             "Varredura concluída"
                         },
-                        job["summary"].clone(),
+                        json!({"scanned":job["summary"]["scanned"],"infected":job["summary"]["infected"],"errors":job["summary"]["errors"],"partial":job["summary"]["partial"]}),
                         if job["state"] == "completed" {
                             "success"
                         } else {

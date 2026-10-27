@@ -395,5 +395,7 @@
   "Atualize a análise antes de verificar este arquivo.": "検査前に分析を更新してください。",
   "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "WireGuard プロファイルが無効です。スクリプトやコマンドは使用できません。",
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "システム保管庫を利用できません。インポート前に安全なキーリングを設定してください。",
-  "Instale o UFW para gerenciar o firewall nesta distribuição.": "このディストリビューションで管理するには UFW をインストールしてください。"
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "このディストリビューションで管理するには UFW をインストールしてください。",
+  "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "前のバックアップからローカルデータを復元しました。無効なファイルは保持されています。",
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "移行が完了しました。VPN プロファイルを新しい保管庫へ再インポートしてください。以前のデータは保持されています。"
 }

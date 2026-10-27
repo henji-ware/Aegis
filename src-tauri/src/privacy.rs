@@ -469,8 +469,9 @@ pub fn start_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
     {
         return Err("tor-already-running".into());
     }
+    core.tor_cancel.store(false, Ordering::SeqCst);
     let result = start_tor_inner(core, app);
-    if result.is_err() {
+    if result.is_err() && core.tor_child.lock().map(|s| s.is_none()).unwrap_or(false) {
         core.tor_busy.store(false, Ordering::SeqCst);
     }
     result
@@ -511,10 +512,15 @@ fn start_tor_inner(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
     for (k, v) in runtime_env(&core.resources, "tor") {
         cmd.env(k, v);
     }
+    let mut slot = core.tor_child.lock().map_err(|_| "process-lock")?;
+    if core.tor_cancel.load(Ordering::SeqCst) || core.closing.load(Ordering::SeqCst) {
+        return Err("cancelled".into());
+    }
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("missing-process-output")?;
     let stderr = child.stderr.take().ok_or("missing-process-output")?;
-    *core.tor_child.lock().map_err(|_| "process-lock")? = Some(child);
+    *slot = Some(child);
+    drop(slot);
     let value = json!({"state":"starting","progress":0,"port":port,"lines":[],"installed":true});
     *core.tor.lock().map_err(|_| "tor-lock")? = value.clone();
     for pipe in [Box::new(stdout) as Box<dyn Read + Send>, Box::new(stderr)] {
@@ -592,6 +598,7 @@ fn start_tor_inner(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
     Ok(value)
 }
 pub fn stop_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+    core.tor_cancel.store(true, Ordering::SeqCst);
     if let Some(child) = core.tor_child.lock().map_err(|_| "process-lock")?.as_mut() {
         let _ = child.kill();
     }

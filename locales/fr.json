@@ -395,5 +395,7 @@
   "Atualize a análise antes de verificar este arquivo.": "Actualisez l’analyse avant de vérifier ce fichier.",
   "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "Profil WireGuard invalide. Les scripts et commandes sont interdits.",
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "Le coffre système est indisponible. Configurez un trousseau sécurisé avant d’importer des profils.",
-  "Instale o UFW para gerenciar o firewall nesta distribuição.": "Installez UFW pour gérer le pare-feu sur cette distribution."
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "Installez UFW pour gérer le pare-feu sur cette distribution.",
+  "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "Données locales restaurées depuis la sauvegarde précédente. Le fichier invalide a été conservé.",
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "Migration terminée. Réimportez les profils VPN dans le nouveau coffre ; les anciennes données sont conservées."
 }

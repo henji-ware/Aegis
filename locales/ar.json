@@ -395,5 +395,7 @@
   "Atualize a análise antes de verificar este arquivo.": "حدّث التحليل قبل فحص هذا الملف.",
   "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "ملف WireGuard غير صالح. لا يُسمح بالبرامج النصية والأوامر.",
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "خزنة النظام غير متاحة. اضبط سلسلة مفاتيح آمنة قبل استيراد الملفات.",
-  "Instale o UFW para gerenciar o firewall nesta distribuição.": "ثبّت UFW لإدارة الجدار الناري في هذه التوزيعة."
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "ثبّت UFW لإدارة الجدار الناري في هذه التوزيعة.",
+  "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "استُعيدت البيانات المحلية من النسخة السابقة. احتُفظ بالملف غير الصالح.",
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "اكتمل الترحيل. أعد استيراد ملفات VPN إلى الخزنة الجديدة؛ احتُفظ بالبيانات السابقة."
 }

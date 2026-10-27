@@ -395,5 +395,7 @@
   "Atualize a análise antes de verificar este arquivo.": "扫描此文件前请刷新分析。",
   "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "WireGuard 配置无效。不允许脚本和命令。",
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "系统凭据库不可用。导入配置前请设置安全密钥环。",
-  "Instale o UFW para gerenciar o firewall nesta distribuição.": "安装 UFW 以管理此发行版的防火墙。"
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "安装 UFW 以管理此发行版的防火墙。",
+  "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "已从先前备份恢复本地数据。无效文件已保留。",
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "迁移完成。请将 VPN 配置重新导入新凭据库；原有数据已保留。"
 }

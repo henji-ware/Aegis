@@ -125,8 +125,8 @@ impl Store {
         }
         Ok(result)
     }
-    pub fn save(&self) -> Result<()> {
-        let bytes = serde_json::to_vec_pretty(&self.data).map_err(|e| e.to_string())?;
+    pub fn save(&mut self) -> Result<()> {
+        let bytes = fit_budget(&mut self.data, 32 * 1024 * 1024)?;
         parse(std::str::from_utf8(&bytes).unwrap())?;
         let file = self.dir.join("state.json");
         let temp = self.dir.join(format!("state-{}.tmp", id()));
@@ -176,6 +176,27 @@ impl Store {
         )
     }
 }
+pub fn fit_budget(data: &mut Value, max: usize) -> Result<Vec<u8>> {
+    loop {
+        let bytes = serde_json::to_vec_pretty(data).map_err(|e| e.to_string())?;
+        if bytes.len() <= max {
+            return Ok(bytes);
+        }
+        let mut removed = false;
+        for key in ["scans", "audits", "history"] {
+            if let Some(items) = data[key].as_array_mut() {
+                if items.len() > 1 {
+                    items.pop();
+                    removed = true;
+                    break;
+                }
+            }
+        }
+        if !removed {
+            return Err("local-data-too-large".into());
+        }
+    }
+}
 pub fn read_limited(path: &Path, max: u64) -> Result<String> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     if file.metadata().map_err(|e| e.to_string())?.len() > max {
@@ -221,5 +242,20 @@ mod tests {
             .file_name()
             .to_string_lossy()
             .starts_with("state.corrupt")));
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    #[test]
+    fn budget_keeps_latest_result() {
+        let mut data = defaults();
+        data["scans"] = json!([{"id":"latest","summary":{"infected":1,"threats":[{"name":"test"}]}},{"id":"old","lines":["x".repeat(3000)]}]);
+        let bytes = fit_budget(&mut data, 1500).unwrap();
+        assert!(bytes.len() <= 1500);
+        assert_eq!(data["scans"][0]["id"], "latest");
+        assert_eq!(data["scans"][0]["summary"]["infected"], 1);
+        assert_eq!(data["scans"].as_array().unwrap().len(), 1);
     }
 }

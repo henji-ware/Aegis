@@ -14,6 +14,8 @@ pub struct Output {
 pub fn command(file: &Path, args: &[String]) -> Command {
     let mut command = Command::new(file);
     command.args(args);
+    #[cfg(unix)]
+    command.env("LC_ALL", "C");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
