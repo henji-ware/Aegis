@@ -397,5 +397,6 @@
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "The system vault is unavailable. Configure a secure keyring before importing profiles.",
   "Instale o UFW para gerenciar o firewall nesta distribuição.": "Install UFW to manage the firewall on this distribution.",
   "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "Local data recovered from the previous backup. The invalid file was preserved.",
-  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "Migration completed. Reimport VPN profiles into the new vault; previous data was preserved."
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "Migration completed. Reimport VPN profiles into the new vault; previous data was preserved.",
+  "{count} verificação ainda precisa de confirmação.": "{count} check still needs confirmation."
 }

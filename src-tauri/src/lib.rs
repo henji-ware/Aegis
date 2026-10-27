@@ -179,7 +179,7 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
             antivirus::start(core, app, kind, path)
         }
         "av:cancel" => {
-            core.scan_cancel.store(true, Ordering::SeqCst);
+            antivirus::cancel(core)?;
             if let Ok(mut job) = core.job.lock() {
                 if job["state"] == "running" {
                     job["state"] = json!("cancelling");
@@ -585,7 +585,9 @@ mod native_tests {
             .code,
             0
         );
-        let fixture = temporary.path().join("clean-fixture.txt");
+        let redirected = temporary.path().join("Área de trabalho - 用户");
+        std::fs::create_dir(&redirected).unwrap();
+        let fixture = redirected.join("análise-fixture.txt");
         std::fs::write(&fixture, "aegis-native-test-fixture").unwrap();
         let db = temporary.path().join("fixture.ndb");
         std::fs::write(
@@ -614,6 +616,10 @@ mod native_tests {
         }
         assert_eq!(parsed.result(output.code)["infected"], 1);
         assert_eq!(parsed.result(output.code)["state"], "threats");
+        assert_eq!(
+            parsed.result(output.code)["threats"][0]["path"],
+            fixture.to_string_lossy().as_ref()
+        );
         assert!(platform::system()["memory"].as_u64().unwrap() > 0);
         let rows = platform::connections().expect("native TCP enumeration");
         for r in rows {

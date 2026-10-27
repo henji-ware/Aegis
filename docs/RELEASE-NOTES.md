@@ -1,16 +1,28 @@
-# Aegis 0.4.0 preview
+# Aegis 0.4.1
 
-This preview migrates the desktop runtime from Electron/Node.js to Tauri 2 and Rust. React, TypeScript and Three.js remain responsible for the interface.
+The first standard release on the stable channel uses Tauri 2 and Rust, with a React, TypeScript and Three.js interface. It is published as a normal GitHub release and selected as the latest release after all release checks succeed.
 
-- Dark green constellation visualization, with point clouds, local process selection, parallax and reduced-motion support.
-- Read-only device checks, local connection inspection and on-demand ClamAV scans.
-- Native firewall confirmation, reversible settings, WireGuard profiles in the system credential vault, and a loopback-only Tor SOCKS proxy.
-- Ten interface languages and original diagnostic details preserved separately.
+- Redesigned black overview, restrained dark green details, an orbital point network, local process selection, parallax and reduced-motion support.
+- Logo-only sidebar branding.
+- Ten interface languages, including localized update progress and singular diagnostic summaries.
+- Read-only device checks, local connection inspection and on-demand ClamAV scans independent of Windows Defender.
+- Quick scans resolve the operating system's Downloads and Desktop folders, including redirected or localized locations.
+- Incomplete connection snapshots cannot produce a successful no-listeners diagnostic.
+- Invalid local state recovers from the last valid backup instead of crashing. Tor cancellation and pending firewall-rule recovery are hardened.
+- Native installation/removal tests, multilingual UI integration, Rust regression tests and dependency vulnerability checks gate publication.
 
-Installers: Windows x64 NSIS `.exe` and `.msi`; Linux x64 `.deb`, `.rpm` and `.AppImage`; macOS Apple silicon `.dmg`. Check the architecture in each filename. Debian-family packages require WebKitGTK 4.1 and the listed native dependencies. GUI compatibility beyond the CI platforms is not implied.
+## Downloads
 
-This is a development preview. ClamAV requires signature downloads before malware scanning. Local connection signals are evidence for review, not a guarantee that a connection is safe or malicious. No external IP reputation service is queried.
+Windows x64 NSIS `.exe` and `.msi`; Linux x64 `.deb`, `.rpm` and `.AppImage`; macOS Apple silicon `.dmg`. Check the architecture in each filename. The Debian package requires WebKitGTK 4.1 and the listed native dependencies. Compatibility beyond the documented CI matrix is not implied.
 
-The installers currently have no trusted Windows Authenticode or Apple Developer ID signature/notarization. SHA-256 checksums and GitHub artifact attestations verify release integrity and build provenance; they do not remove operating system trust warnings. Do not disable system protections to run this preview.
+## Behavior and limitations
 
-Electron user data is preserved. Compatible history, settings and firewall recovery information can be imported; VPN secrets need to be reimported into the new system vault. Disconnect a VPN tunnel managed by the old version before switching versions.
+ClamAV requires signature downloads before normal malware scans. Antivirus scanning is on demand; automatic deletion, quarantine and real-time protection are not implemented. Local connection signals support review and cannot establish that a connection is safe or malicious. No external IP reputation service is queried.
+
+Firewall and VPN changes require explicit confirmation and OS authorization. A WireGuard server/profile is supplied by the user. Tor exposes a loopback-only SOCKS proxy that applications must choose to use. No paid Aegis feature, subscription, telemetry or mandatory account is required.
+
+The stable release channel does not supply a publisher certificate: Windows installers currently have no trusted Authenticode signature, and macOS has no Apple Developer ID signature/notarization. SHA-256 checksums and GitHub artifact attestations verify integrity/build provenance, not operating-system publisher trust. Keep system protections enabled.
+
+## Upgrade
+
+Electron user data is preserved. Compatible history, settings and firewall recovery information can be imported; VPN secrets need to be reimported into the system credential vault. Disconnect a VPN tunnel managed by the old version before switching versions. Application data is retained during uninstall; delete it separately only if you intend to discard your history and recovery information.

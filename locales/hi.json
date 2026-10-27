@@ -397,5 +397,6 @@
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "सिस्टम वॉल्ट उपलब्ध नहीं है। प्रोफ़ाइल आयात करने से पहले सुरक्षित कीरिंग सेट करें।",
   "Instale o UFW para gerenciar o firewall nesta distribuição.": "इस वितरण पर फ़ायरवॉल प्रबंधित करने के लिए UFW स्थापित करें।",
   "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "पिछले बैकअप से स्थानीय डेटा बहाल हुआ। अमान्य फ़ाइल सुरक्षित रखी गई है।",
-  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "माइग्रेशन पूरा हुआ। VPN प्रोफ़ाइल नई वॉल्ट में फिर आयात करें; पिछला डेटा सुरक्षित है।"
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "माइग्रेशन पूरा हुआ। VPN प्रोफ़ाइल नई वॉल्ट में फिर आयात करें; पिछला डेटा सुरक्षित है।",
+  "{count} verificação ainda precisa de confirmação.": "{count} जाँच की पुष्टि अभी बाकी है।"
 }

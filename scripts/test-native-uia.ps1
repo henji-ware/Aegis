@@ -49,4 +49,4 @@ Wait-AppText 'ClamAV 1.5.4'
 Invoke-AppButton $messages.overview
 Invoke-AppButton $messages.verify
 Wait-AppText $messages.completed 120
-Write-Output 'PASS: actual extracted MSI app, Windows accessibility tree, Rust-provided device data, bundled ClamAV version and completed read-only diagnostic. No native security setting was changed.'
+Write-Output 'PASS: actual desktop app, Windows accessibility tree, Rust-provided device data, bundled ClamAV version and completed read-only diagnostic. No native security setting was changed.'

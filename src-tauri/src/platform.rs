@@ -2,6 +2,7 @@ use crate::{runner::*, store::Result};
 use regex::Regex;
 use serde_json::{json, Value};
 use std::{net::IpAddr, path::Path};
+pub const CONNECTION_LIMIT: usize = 350;
 fn list(value: Value) -> Vec<Value> {
     match value {
         Value::Array(a) => a,
@@ -77,7 +78,7 @@ pub fn parse_ss(text: &str) -> Vec<Value> {
         let (ra, rp) = endpoint(cols[4]);
         let m = pid_re.captures(line);
         rows.push(json!({"id":format!("ss-{}",rows.len()),"protocol":"TCP","localAddress":la,"localPort":lp,"remoteAddress":ra,"remotePort":rp,"state":state,"pid":m.as_ref().and_then(|c|c[2].parse::<u32>().ok()).unwrap_or(0),"process":m.as_ref().map(|c|c[1].to_string()).unwrap_or_default()}));
-        if rows.len() == 350 {
+        if rows.len() == CONNECTION_LIMIT {
             break;
         }
     }
@@ -103,7 +104,7 @@ pub fn parse_lsof(text: &str) -> Vec<Value> {
             let (la, lp) = endpoint(local);
             let (ra, rp) = endpoint(remote);
             rows.push(json!({"id":format!("lsof-{}-{}",pid,rows.len()),"protocol":"TCP","localAddress":la,"localPort":lp,"remoteAddress":ra,"remotePort":rp,"state":state,"pid":pid,"process":process}));
-            if rows.len() == 350 {
+            if rows.len() == CONNECTION_LIMIT {
                 break;
             }
         }
@@ -112,7 +113,8 @@ pub fn parse_lsof(text: &str) -> Vec<Value> {
 }
 pub fn connections() -> Result<Vec<Value>> {
     if cfg!(windows) {
-        let values=list(ps_json("$procs=@{}; Get-Process | ForEach-Object {$procs[$_.Id]=$_.ProcessName}; @(Get-NetTCPConnection -ErrorAction Stop | Where-Object {$_.State -in @('Established','Listen')} | Select-Object -First 350 | ForEach-Object {[pscustomobject]@{protocol='TCP';localAddress=$_.LocalAddress;localPort=$_.LocalPort;remoteAddress=$_.RemoteAddress;remotePort=$_.RemotePort;state=[string]$_.State;pid=$_.OwningProcess;process=$procs[[int]$_.OwningProcess]}}) | ConvertTo-Json -Compress")?);
+        let script = "$procs=@{}; Get-Process | ForEach-Object {$procs[$_.Id]=$_.ProcessName}; @(Get-NetTCPConnection -ErrorAction Stop | Where-Object {$_.State -in @('Established','Listen')} | Select-Object -First __LIMIT__ | ForEach-Object {[pscustomobject]@{protocol='TCP';localAddress=$_.LocalAddress;localPort=$_.LocalPort;remoteAddress=$_.RemoteAddress;remotePort=$_.RemotePort;state=[string]$_.State;pid=$_.OwningProcess;process=$procs[[int]$_.OwningProcess]}}) | ConvertTo-Json -Compress".replace("__LIMIT__", &CONNECTION_LIMIT.to_string());
+        let values = list(ps_json(&script)?);
         return Ok(values
             .into_iter()
             .enumerate()

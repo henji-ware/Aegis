@@ -21,6 +21,43 @@ fn update(core: &Core, field: &str, value: Value) -> Result<()> {
 fn ufw() -> Result<std::path::PathBuf> {
     tool("ufw", &[]).ok_or("ufw-required".into())
 }
+fn ufw_added(text: &str) -> Result<Vec<&str>> {
+    let mut lines = text.lines().map(str::trim).filter(|line| !line.is_empty());
+    if lines.next() != Some("Added user rules (see 'ufw status' for running firewall):") {
+        return Err("rule-ownership-unverified".into());
+    }
+    let rules = lines.collect::<Vec<_>>();
+    if rules == ["(None)"] {
+        return Ok(vec![]);
+    }
+    if rules.is_empty() || rules.iter().any(|line| !line.starts_with("ufw ")) {
+        return Err("rule-ownership-unverified".into());
+    }
+    Ok(rules)
+}
+fn ufw_owned_rule(text: &str, id: &str, port: u16) -> Result<bool> {
+    let rules = ufw_added(text)?;
+    let comment = regex::Regex::new(&format!(
+        r"(?:^|\s)comment (?:'{}'|{})$",
+        regex::escape(id),
+        regex::escape(id)
+    ))
+    .unwrap();
+    let port = regex::Regex::new(&format!(r"(?:\s|^){port}(?:/tcp|\s|$)")).unwrap();
+    let mut present = false;
+    for line in rules {
+        if line.contains(id) {
+            if !comment.is_match(line)
+                || !port.is_match(line.split("comment").next().unwrap_or(""))
+                || !line.starts_with("ufw deny ")
+            {
+                return Err("rule-ownership-unverified".into());
+            }
+            present = true;
+        }
+    }
+    Ok(present)
+}
 pub fn harden(core: &Core) -> Result<Value> {
     if !core.store.lock().map_err(|_| "state-lock")?.data["firewallBackup"].is_null() {
         return Err("firewall-backup-exists".into());
@@ -178,8 +215,8 @@ pub fn block(core: &Core, input: &Value) -> Result<Value> {
     if cfg!(target_os = "linux") {
         let added = elevate(&ufw()?, &["show".into(), "added".into()])?;
         let re = regex::Regex::new(&format!(r"(?:\s|^){port}(?:/tcp|\s|$)")).unwrap();
-        if added
-            .lines()
+        if ufw_added(&added)?
+            .into_iter()
             .any(|line| re.is_match(line.split("comment").next().unwrap_or("")))
         {
             return Err("external-rule-exists".into());
@@ -243,29 +280,28 @@ pub fn remove(core: &Core, id: &str) -> Result<Value> {
     } else if cfg!(target_os = "linux") {
         let file = ufw()?;
         let added = elevate(&file, &["show".into(), "added".into()])?;
-        if !added
-            .lines()
-            .any(|l| l.contains(id) && l.contains(&port.to_string()))
-        {
-            return Err("rule-ownership-unverified".into());
+        // A cancelled add can leave pending metadata without a native rule.
+        // Forget it only after a successful, complete query confirms absence;
+        // never issue a delete for another application's rule on that port.
+        if ufw_owned_rule(&added, id, port)? {
+            elevate(
+                &file,
+                &[
+                    "--force".into(),
+                    "delete".into(),
+                    "deny".into(),
+                    "in".into(),
+                    "proto".into(),
+                    "tcp".into(),
+                    "to".into(),
+                    "any".into(),
+                    "port".into(),
+                    port.to_string(),
+                    "comment".into(),
+                    id.into(),
+                ],
+            )?;
         }
-        elevate(
-            &file,
-            &[
-                "--force".into(),
-                "delete".into(),
-                "deny".into(),
-                "in".into(),
-                "proto".into(),
-                "tcp".into(),
-                "to".into(),
-                "any".into(),
-                "port".into(),
-                port.to_string(),
-                "comment".into(),
-                id.into(),
-            ],
-        )?;
     }
     {
         let mut s = core.store.lock().map_err(|_| "state-lock")?;
@@ -292,5 +328,39 @@ mod tests {
             assert!(port(&input).is_err());
         }
         assert_eq!(port(&json!("443")).unwrap(), 443);
+    }
+    #[test]
+    fn ufw_absence_allows_pending_metadata_recovery() {
+        let header = "Added user rules (see 'ufw status' for running firewall):\n";
+        let id = "Aegis-12345678-1234-1234-1234-123456789abc";
+        assert!(!ufw_owned_rule(&(header.to_owned() + "(None)\n"), id, 443).unwrap());
+        assert!(!ufw_owned_rule(
+            &(header.to_owned() + "ufw allow 443/tcp comment 'external'\n"),
+            id,
+            443
+        )
+        .unwrap());
+        assert!(ufw_owned_rule(
+            &(header.to_owned() + &format!("ufw deny 443/tcp comment '{id}'\n")),
+            id,
+            443
+        )
+        .unwrap());
+    }
+    #[test]
+    fn ufw_ambiguous_or_mismatched_ownership_is_retained() {
+        let header = "Added user rules (see 'ufw status' for running firewall):\n";
+        let id = "Aegis-12345678-1234-1234-1234-123456789abc";
+        for text in [
+            String::new(),
+            "ERROR: Permission denied".into(),
+            header.into(),
+            format!("{header}unexpected status\n"),
+            format!("{header}ufw deny 1443/tcp comment '{id}'\n"),
+            format!("{header}ufw allow 443/tcp comment '{id}'\n"),
+            format!("{header}ufw deny 443/tcp comment '{id}-other'\n"),
+        ] {
+            assert!(ufw_owned_rule(&text, id, 443).is_err(), "{text}");
+        }
     }
 }

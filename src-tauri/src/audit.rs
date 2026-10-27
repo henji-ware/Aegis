@@ -14,6 +14,23 @@ fn check(
 ) -> Value {
     json!({"id":id,"title":title,"status":status,"evidence":if let Some(s)=evidence.as_str(){s.to_string()}else{serde_json::to_string_pretty(&evidence).unwrap_or_default()},"recommendation":recommendation,"action":action})
 }
+fn listener_status(rows: &[Value]) -> (&'static str, usize, bool) {
+    let count = rows
+        .iter()
+        .filter(|r| {
+            r["state"] == "Listen" && !platform::loopback(r["localAddress"].as_str().unwrap_or(""))
+        })
+        .count();
+    let limit_reached = rows.len() >= platform::CONNECTION_LIMIT;
+    let status = if count > 0 {
+        "review"
+    } else if limit_reached {
+        "unknown"
+    } else {
+        "pass"
+    };
+    (status, count, limit_reached)
+}
 pub fn run(core: &Core) -> Result<Value> {
     let firewall = platform::firewall();
     let network = platform::connections();
@@ -85,23 +102,12 @@ pub fn run(core: &Core) -> Result<Value> {
         "Atualize as assinaturas com FreshClam; o horário local não confirma a versão da base.",
         Some("antivirus"),
     ));
-    let listeners = network.as_ref().map(|rows| {
-        rows.iter()
-            .filter(|r| {
-                r["state"] == "Listen"
-                    && !platform::loopback(r["localAddress"].as_str().unwrap_or(""))
-            })
-            .count()
-    });
+    let listeners = network.as_ref().map(|rows| listener_status(rows));
     checks.push(check(
         "listeners",
         "Serviços em escuta na rede",
-        match listeners {
-            Ok(0) => "pass",
-            Ok(_) => "review",
-            Err(_) => "unknown",
-        },
-        json!({"nonLoopbackTcpListeners":listeners.ok(),"error":network.as_ref().err()}),
+        listeners.as_ref().map(|(status, _, _)| *status).unwrap_or("unknown"),
+        json!({"nonLoopbackTcpListeners":listeners.as_ref().ok().map(|(_, count, _)| *count),"snapshotLimitReached":listeners.as_ref().ok().map(|(_, _, limited)| *limited),"error":network.as_ref().err()}),
         "Confirme se os serviços em escuta são necessários e revise o firewall.",
         Some("network"),
     ));
@@ -177,6 +183,25 @@ pub fn run(core: &Core) -> Result<Value> {
 }
 #[cfg(test)]
 mod tests {
+    use super::*;
+    #[test]
+    fn truncated_socket_snapshot_never_proves_no_listeners() {
+        let mut output =
+            "ESTAB 0 0 127.0.0.1:1234 127.0.0.1:5678\n".repeat(platform::CONNECTION_LIMIT);
+        output.push_str("LISTEN 0 128 0.0.0.0:8080 0.0.0.0:*\n");
+        let rows = platform::parse_ss(&output);
+        assert_eq!(listener_status(&rows), ("unknown", 0, true));
+    }
+    #[test]
+    fn listener_evidence_distinguishes_complete_and_limited_snapshots() {
+        assert_eq!(listener_status(&[]), ("pass", 0, false));
+        let rows =
+            vec![json!({"state":"Listen","localAddress":"0.0.0.0"}); platform::CONNECTION_LIMIT];
+        assert_eq!(
+            listener_status(&rows),
+            ("review", platform::CONNECTION_LIMIT, true)
+        );
+    }
     #[test]
     fn strict_guard_enums() {
         let known = |v: serde_json::Value| v.as_u64().filter(|n| *n <= 2);
