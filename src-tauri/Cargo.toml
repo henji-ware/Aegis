@@ -1,0 +1,39 @@
+[package]
+name = "aegis-desktop"
+version = "0.4.0"
+description = "Local desktop security and privacy application"
+authors = ["Aegis contributors"]
+license = "MIT"
+repository = "https://github.com/henji-ware/Aegis"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "aegis_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+regex = "1"
+sysinfo = "0.38"
+get_if_addrs = "0.5"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+zeroize = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Memory", "Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+tempfile = "3"
+

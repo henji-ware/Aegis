@@ -1,7 +1,7 @@
 export type Page='overview'|'audit'|'antivirus'|'network'|'firewall'|'privacy'|'history'|'settings';
 export interface Settings{reducedMotion:boolean;liveNetwork:boolean;language?:string}
 export interface SystemInfo{platform:string;release:string;architecture:string;hostname:string;os:string;memory:number;cpus:number;interfaces:{name:string;address:string;family:string}[]}
-export interface Connection{id:string;protocol:string;localAddress:string;localPort:number;remoteAddress:string;remotePort:number;state:string;pid:number;process:string}
+export interface Connection{analysis?:{level:string;signals:string[];path:string|null;signature:string|null;inspected:boolean;at:string;token:string|null};id:string;protocol:string;localAddress:string;localPort:number;remoteAddress:string;remotePort:number;state:string;pid:number;process:string}
 export interface Check{id:string;title:string;status:'pass'|'warning'|'review'|'unknown';evidence:string;recommendation:string;action?:Page}
 export interface Audit{id:string;at:string;system:SystemInfo;checks:Check[];counts:{pass:number;warning:number;review:number;unknown:number}}
 export interface LocalEvent{id:string;at:string;type:string;title:string;detail:string;status:string}

@@ -1,44 +1,52 @@
 {
   "name": "aegis-desktop",
   "productName": "Aegis",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "main": "electron/main.cjs",
-  "author": "Aegis contributors",
+  "author": {
+    "name": "Aegis contributors",
+    "email": "187053527+henji-ware@users.noreply.github.com"
+  },
   "license": "MIT",
   "description": "Local desktop security and privacy application",
   "scripts": {
-    "dev": "node scripts/dev.cjs",
+    "dev": "tauri dev",
+    "dev:web": "vite",
     "build": "tsc --noEmit && vite build",
-    "start": "electron .",
-    "test": "node --test tests/*.test.cjs",
-    "package": "npm run build && node scripts/package.cjs",
-    "check": "npm run test && npm run build",
+    "start": "tauri dev",
+    "test": "node --test tests-tauri/*.test.cjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:ui": "node scripts/test-ui-tauri.cjs",
+    "package": "tauri build",
+    "check": "npm test && npm run build",
     "prepare:runtimes": "node scripts/prepare-runtimes.cjs",
-    "test:ui": "node scripts/ui-smoke.cjs",
-    "test:effects": "node scripts/test-ui-effects.cjs",
-    "test:dpapi": "node scripts/test-dpapi.cjs",
     "check:runtimes": "node scripts/check-runtimes.cjs",
-    "test:guard": "node scripts/test-windows-guard.cjs",
-    "test:locales": "node scripts/test-ui-locales.cjs"
+    "tauri": "tauri"
   },
   "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-dialog": "2.8.3",
+    "@tauri-apps/plugin-opener": "2.7.2",
     "lucide-react": "^0.577.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "three": "0.186.1"
   },
   "devDependencies": {
-    "@electron/packager": "20.3.0",
+    "@tauri-apps/cli": "2.12.4",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.183.0",
     "@vitejs/plugin-react": "^6.0.0",
-    "electron": "45.0.0",
     "playwright": "1.62.1",
     "typescript": "^5.9.0",
     "vite": "8.3.5"
   },
-  "type": "module"
+  "type": "module",
+  "homepage": "https://github.com/henji-ware/Aegis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/henji-ware/Aegis.git"
+  }
 }
