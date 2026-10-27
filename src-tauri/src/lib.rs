@@ -344,7 +344,8 @@ async fn aegis_call(
     tauri::async_runtime::spawn_blocking(move || {
         let mutation = matches!(
             method.as_str(),
-            "firewall:harden"
+            "av:scan"
+                | "firewall:harden"
                 | "firewall:restore"
                 | "firewall:block"
                 | "firewall:remove"
@@ -404,7 +405,9 @@ fn migrate(core: &Core) {
                                     }
                                 }
                                 if store::settings(&data["settings"]).is_ok() {
-                                    s.data["settings"] = data["settings"].clone();
+                                    for (key, value) in data["settings"].as_object().unwrap() {
+                                        s.data["settings"][key] = value.clone();
+                                    }
                                 }
                                 if let Some(tunnel) =
                                     data["activeVpn"]["tunnel"].as_str().filter(|t| {

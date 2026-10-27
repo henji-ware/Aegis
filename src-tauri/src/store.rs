@@ -71,6 +71,12 @@ pub fn parse(text: &str) -> Result<Value> {
         }
     }
     settings(&value["settings"])?;
+    if !value["settings"]["reducedMotion"].is_boolean()
+        || !value["settings"]["liveNetwork"].is_boolean()
+        || !value["settings"]["language"].is_string()
+    {
+        return Err("invalid-local-data".into());
+    }
     Ok(value)
 }
 pub struct Store {

@@ -24,6 +24,7 @@ async function findClamRoots(dir,depth=0){
  const roots=[];for(const item of await fs.readdir(dir,{withFileTypes:true}))if(item.isDirectory())roots.push(...await findClamRoots(path.join(dir,item.name),depth+1));
  return roots;
 }
+async function findCerts(dir,depth=0){if(depth>12)return null;try{await fs.access(path.join(dir,'clamav.crt'));return dir;}catch{}for(const entry of await fs.readdir(dir,{withFileTypes:true})){if(entry.isDirectory()){const found=await findCerts(path.join(dir,entry.name),depth+1);if(found)return found;}}return null;}
 function cabinetFromMsi(data){
  if(data.subarray(0,8).toString('hex')!=='d0cf11e0a1b11ae1')throw new Error('Invalid MSI container.');
  const size=1<<data.readUInt16LE(30),sector=n=>data.subarray((n+1)*size,(n+2)*size),fat=[];
@@ -71,6 +72,7 @@ async function prepare(){
   else{await run('/usr/sbin/pkgutil',['--expand-full',file,extracted]);}
   const bases=await findClamRoots(extracted);if(!bases.length)throw new Error('Unknown ClamAV package layout.');
   for(const base of bases)await fs.cp(base,path.join(resources,'clamav'),{recursive:true,dereference:true,filter:file=>!/unrar/i.test(path.basename(file))});
+  const certs=await findCerts(extracted);if(!certs)throw new Error('Official ClamAV CVD certificates missing from package.');await fs.cp(certs,path.join(resources,'clamav','certs'),{recursive:true});
   if(platform==='darwin')await relocateMac(path.join(resources,'clamav'));
  }
  const torFile=await download(manifest.tor.base+tor.name,tor.name,tor.sha256),torDir=path.join(resources,'tor');

@@ -257,13 +257,20 @@ pub fn runtime_env(resources: &Path, engine: &str) -> Vec<(String, String)> {
     if let Some(inherited) = std::env::var_os(key) {
         paths.extend(std::env::split_paths(&inherited));
     }
-    vec![(
+    let mut result = vec![(
         key.into(),
         std::env::join_paths(paths)
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned(),
-    )]
+    )];
+    if engine == "clamav" {
+        let certs = root.join("certs");
+        if certs.join("clamav.crt").is_file() {
+            result.push(("CVD_CERTS_DIR".into(), certs.to_string_lossy().into_owned()));
+        }
+    }
+    result
 }
 pub fn engine(resources: &Path, group: &str, name: &str) -> Option<PathBuf> {
     let exe = if cfg!(windows) {
