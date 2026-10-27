@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 if ($env:CI -ne 'true') { throw 'This helper is only for isolated CI runners.' }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
-$messages = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../locales/en.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$messages = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../.build/uia-labels.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $automation = [System.Windows.Automation.AutomationElement]
 $windowCondition = [System.Windows.Automation.PropertyCondition]::new($automation::ProcessIdProperty, $AppProcessId)
 $appWindow = $null
@@ -22,7 +22,7 @@ function Get-AppNames {
 function Wait-AppText([string]$Expected,[int]$Seconds=60) {
   $until = [DateTime]::UtcNow.AddSeconds($Seconds)
   do {
-    if (Get-AppNames | Where-Object { $_.Contains($Expected) }) { return }
+    if (Get-AppNames | Where-Object { $_.IndexOf($Expected,[StringComparison]::OrdinalIgnoreCase) -ge 0 }) { return }
     Start-Sleep -Milliseconds 500
   } while ([DateTime]::UtcNow -lt $until)
   Write-Output ((Get-AppNames | Select-Object -First 80) | ConvertTo-Json -Compress)
@@ -44,9 +44,9 @@ function Invoke-AppButton([string]$Name) {
   $invoke.Invoke()
 }
 Wait-AppText ([Environment]::MachineName)
-Invoke-AppButton $messages.'Antivírus'
+Invoke-AppButton $messages.antivirus
 Wait-AppText 'ClamAV 1.5.4'
-Invoke-AppButton $messages.'Visão geral'
-Invoke-AppButton $messages.'Verificar sistema'
-Wait-AppText $messages.'Verificação concluída' 120
+Invoke-AppButton $messages.overview
+Invoke-AppButton $messages.verify
+Wait-AppText $messages.completed 120
 Write-Output 'PASS: actual extracted MSI app, Windows accessibility tree, Rust-provided device data, bundled ClamAV version and completed read-only diagnostic. No native security setting was changed.'
