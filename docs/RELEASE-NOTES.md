@@ -3,7 +3,7 @@
 The first standard release on the stable channel uses Tauri 2 and Rust, with a React, TypeScript and Three.js interface. It is published as a normal GitHub release and selected as the latest release after all release checks succeed.
 
 - Redesigned black overview, restrained dark green details, an orbital point network, local process selection, parallax and reduced-motion support.
-- Logo-only sidebar branding.
+- Logo-only sidebar branding and language changes available only in Preferences.
 - Ten interface languages, including localized update progress and singular diagnostic summaries.
 - Read-only device checks, local connection inspection and on-demand ClamAV scans independent of Windows Defender.
 - Quick scans resolve the operating system's Downloads and Desktop folders, including redirected or localized locations.

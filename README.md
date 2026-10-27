@@ -36,7 +36,7 @@ Connection analysis uses local evidence. A listening port or a temporary executa
 
 Black surfaces with restrained dark green details, an orbital point network, local process selection and pointer parallax. The overview separates diagnostic indicators, connections, device state and module access. Decorative stars and lines are abstract; they do not represent geography, measured traffic or detected attacks. Continuous movement stops with reduced motion and pauses while hidden.
 
-Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are immediate and saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
+Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are available only in Preferences, take effect immediately and are saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
 
 ## Architecture
 

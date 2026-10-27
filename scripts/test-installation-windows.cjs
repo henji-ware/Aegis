@@ -8,6 +8,18 @@ async function removed(file){for(let i=0;i<120;i++){if(!await exists(file))retur
 const samePath=(a,b)=>path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase();
 async function canonicalInsideBuild(file){const resolved=await fs.realpath(file),base=await fs.realpath(build),relative=path.relative(base,resolved);if(!relative||relative.startsWith('..')||path.isAbsolute(relative))throw Error('Registered installation escaped the canonical .build directory.');return resolved;}
 async function hash(file){return crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex');}
+async function baseline(executable){const canonical=await canonicalInsideBuild(executable);return {executable:canonical,sha256:await hash(canonical),bytes:(await fs.stat(canonical)).size};}
+async function nsisBaseline(setup){
+ const sevenZip=path.join(process.env.ProgramFiles||'C:\\Program Files','7-Zip/7z.exe');
+ if(!await exists(sevenZip))throw Error('The isolated Windows runner must provide its preinstalled 7-Zip for independent NSIS payload extraction.');
+ const extracted=insideBuild(await fs.mkdtemp(path.join(build,'nsis-payload-')));
+ run(sevenZip,['x',setup,'-o'+extracted,'-y','-bso0','-bsp0']);
+ const matches=[];
+ async function visit(dir){for(const item of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,item.name);if(item.isDirectory())await visit(file);else if(item.isFile()&&item.name.toLowerCase()==='aegis-desktop.exe')matches.push(file);}}
+ await visit(extracted);
+ if(matches.length!==1)throw Error('The independently extracted NSIS payload must contain exactly one Aegis executable.');
+ return baseline(matches[0]);
+}
 function inspectMsi(msi){const powershell=path.join(process.env.SystemRoot||'C:\\Windows','System32/WindowsPowerShell/v1.0/powershell.exe');return JSON.parse(execFileSync(powershell,['-NoProfile','-NonInteractive','-File',path.join(root,'scripts/inspect-msi.ps1'),'-MsiPath',msi],{windowsHide:true,encoding:'utf8',timeout:60000}).trim().replace(/^\uFEFF/,''));}
 (async()=>{
  if(process.platform!=='win32'||process.env.CI!=='true')throw Error('Installation tests are restricted to isolated Windows CI runners.');
@@ -16,13 +28,18 @@ function inspectMsi(msi){const powershell=path.join(process.env.SystemRoot||'C:\
  const setup=await find(bundle,name=>name.endsWith('-setup.exe')),msi=await find(bundle,name=>name.endsWith('.msi'));
  if(!setup||!msi)throw Error('Both Windows installers are required.');
  const payload=JSON.parse(await fs.readFile(path.join(build,'installed-payload.json'),'utf8'));
- const expectedExecutable=await canonicalInsideBuild(payload.executable),expectedHash=await hash(expectedExecutable);
+ // Tauri patches the executable with a different bundle-type marker for NSIS
+ // and MSI. Compare each real installation against its own extracted payload.
+ const expectedByKind={nsis:await nsisBaseline(setup),msi:await baseline(payload.executable)};
+ console.log('Independent installer payload baselines: '+JSON.stringify(expectedByKind));
  const initialMsi=inspectMsi(msi),expectedVersion=require('../package.json').version;
  if(initialMsi.productName!=='Aegis'||initialMsi.productVersion!==expectedVersion||initialMsi.productState===5)throw Error('MSI package identity/version is unexpected or already installed before this test.');
  const priorDestinations=[];
  for(const kind of ['nsis','msi']){
   const destination=insideBuild(path.join(build,kind+'-installed-'+Date.now()));
   let actualDestination=destination,executable=path.join(destination,'aegis-desktop.exe');
+  const expected=expectedByKind[kind];
+  let evidence={kind,requestedDestination:destination,expected};
   if(await exists(destination))throw Error('Refusing to overwrite an existing test installation.');
   const allowedDestinations=[destination,...priorDestinations];
   for(const candidate of allowedDestinations){if(await exists(path.join(candidate,'aegis-desktop.exe'))||await exists(path.join(candidate,'engines')))throw Error('A test destination contains stale application or engine files before installation.');}
@@ -35,7 +52,8 @@ function inspectMsi(msi){const powershell=path.join(process.env.SystemRoot||'C:\
    installed=true;
    if(kind==='msi'){
     const registered=inspectMsi(msi);
-    await fs.writeFile(path.join(build,'msi-install-evidence.json'),JSON.stringify({before:beforeMsi,after:registered,requestedDestination:destination,allowedDestinations,expectedHash},null,2));
+    evidence={...evidence,before:beforeMsi,after:registered,allowedDestinations};
+    await fs.writeFile(path.join(build,'msi-install-evidence.json'),JSON.stringify(evidence,null,2));
     if(registered.productCode!==initialMsi.productCode||registered.productState!==5||registered.registeredVersion!==expectedVersion||!registered.installLocation)throw Error('The exact MSI product is not registered with the expected version and installation location.');
     console.log('MSI registered installation location: '+registered.installLocation);
     actualDestination=await canonicalInsideBuild(registered.installLocation);
@@ -44,7 +62,14 @@ function inspectMsi(msi){const powershell=path.join(process.env.SystemRoot||'C:\
     executable=path.join(actualDestination,'aegis-desktop.exe');
    }
    if(!await exists(executable))throw Error(kind+' did not install the application in its verified installation directory.');
-   if(!samePath(await canonicalInsideBuild(executable),path.join(actualDestination,'aegis-desktop.exe'))||await hash(executable)!==expectedHash)throw Error(kind+' installed an unexpected or stale application binary.');
+   actualDestination=await canonicalInsideBuild(actualDestination);
+   const actual=await baseline(executable),expectedInstalledPath=path.join(actualDestination,'aegis-desktop.exe');
+   evidence={...evidence,actualDestination,expectedInstalledPath,actual};
+   await fs.writeFile(path.join(build,kind+'-install-evidence.json'),JSON.stringify(evidence,null,2));
+   console.log(kind.toUpperCase()+' installation identity: '+JSON.stringify(evidence));
+   if(!samePath(actual.executable,expectedInstalledPath))throw Error(kind+' installed executable has an unexpected canonical path: expected '+expectedInstalledPath+', actual '+actual.executable);
+   if(actual.sha256!==expected.sha256||actual.bytes!==expected.bytes)throw Error(kind+' installed executable differs from its own extracted installer payload: expected SHA-256 '+expected.sha256+' ('+expected.bytes+' bytes), actual '+actual.sha256+' ('+actual.bytes+' bytes)');
+   executable=actual.executable;
    execFileSync(process.execPath,[path.join(root,'scripts/check-runtimes.cjs')],{windowsHide:true,stdio:'inherit',timeout:60000,env:{...process.env,AEGIS_CHECK_RESOURCES:path.join(actualDestination,'engines')}});
    execFileSync(process.execPath,[path.join(root,'scripts/test-native-windows.cjs'),executable],{windowsHide:true,stdio:'inherit',timeout:300000});
   }finally{

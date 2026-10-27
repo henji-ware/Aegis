@@ -131,7 +131,7 @@ jobs:
           name: installer-diagnostics-${{ runner.os }}-${{ runner.arch }}
           path: |
             .build/*install*.log
-            .build/msi-install-evidence.json
+            .build/*install-evidence.json
           if-no-files-found: ignore
   publish:
     needs: [frontend, rust-audit, desktop]

@@ -1,8 +1,25 @@
-const fs=require('node:fs/promises'),path=require('node:path'),{execFileSync}=require('node:child_process');
+const fs=require('node:fs/promises'),path=require('node:path'),{execFileSync,spawn}=require('node:child_process'),{pipeline}=require('node:stream/promises');
 const root=path.resolve(__dirname,'..'),build=path.join(root,'.build');
 async function walk(dir,fn){for(const e of await fs.readdir(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(await fn(file,e))return file;if(e.isDirectory()){const found=await walk(file,fn);if(found)return found;}}return null;}
 function safe(file){const absolute=path.resolve(file),relative=path.relative(build,absolute);if(!relative||relative.startsWith('..')||path.isAbsolute(relative))throw Error('Test path is outside .build');return absolute;}
 async function temporary(prefix){const file=safe(path.join(build,prefix+'-'+Date.now()));await fs.mkdir(file,{recursive:true});return file;}
+async function extractRpm(file,destination){
+ const converter=spawn('/usr/bin/rpm2cpio',[file],{stdio:['ignore','pipe','inherit']});
+ const extractor=spawn('/usr/bin/cpio',['-id','--no-absolute-filenames','--quiet'],{cwd:destination,stdio:['pipe','inherit','inherit']});
+ const completed=(child,label)=>new Promise((resolve,reject)=>{
+  child.once('error',reject);
+  child.once('close',(code,signal)=>code===0?resolve():reject(Error(label+' failed: '+(signal||code))));
+ });
+ const exits=[completed(converter,'rpm2cpio'),completed(extractor,'cpio')];let timedOut=false;
+ const stop=()=>{converter.kill('SIGKILL');extractor.kill('SIGKILL');};
+ const timer=setTimeout(()=>{timedOut=true;stop();},120000);
+ try{
+  await Promise.all([pipeline(converter.stdout,extractor.stdin),...exits]);
+ }catch(error){
+  stop();await Promise.allSettled(exits);
+  throw timedOut?Error('RPM extraction timed out'):error;
+ }finally{clearTimeout(timer);}
+}
 async function payload(extracted){
  const engines=await walk(extracted,async(f,e)=>e.isDirectory()&&e.name==='engines'&&await fs.stat(path.join(f,'clamav')).then(s=>s.isDirectory()).catch(()=>false));
  if(!engines)throw Error('Installed engine resources missing: '+extracted);
@@ -22,8 +39,7 @@ async function payload(extracted){
   const extracted=await temporary('deb-check');execFileSync('/usr/bin/dpkg-deb',['-x',deb,extracted],{stdio:'inherit'});console.log(execFileSync('/usr/bin/dpkg-deb',['-f',deb,'Package','Version','Architecture','Depends'],{encoding:'utf8'}));await payload(extracted);
   const rpm=await walk(bundle,async(f,e)=>e.isFile()&&f.endsWith('.rpm'));if(!rpm)throw Error('RPM missing');
   execFileSync('/usr/bin/rpm',['--checksig',rpm],{stdio:'inherit'});console.log(execFileSync('/usr/bin/rpm',['-qp','--qf','%{NAME} %{VERSION} %{ARCH}\n',rpm],{encoding:'utf8'}));
-  const rpmDir=await temporary('rpm-check'),cpio=execFileSync('/usr/bin/rpm2cpio',[rpm],{maxBuffer:512*1024*1024});
-  execFileSync('/usr/bin/cpio',['-id','--no-absolute-filenames','--quiet'],{cwd:rpmDir,input:cpio,maxBuffer:1024*1024});await payload(rpmDir);
+  const rpmDir=await temporary('rpm-check');await extractRpm(rpm,rpmDir);await payload(rpmDir);
   const image=await walk(bundle,async(f,e)=>e.isFile()&&f.endsWith('.AppImage'));if(!image)throw Error('AppImage missing');
   const imageDir=await temporary('appimage-check');execFileSync(image,['--appimage-extract'],{cwd:imageDir,stdio:'ignore',timeout:120000});await payload(path.join(imageDir,'squashfs-root'));
   console.log('PASS: DEB, RPM integrity/metadata and extracted AppImage checked.');
