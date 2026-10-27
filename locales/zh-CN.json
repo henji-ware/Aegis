@@ -392,5 +392,8 @@
   "Túnel VPN removido": "已移除 VPN 隧道",
   "Conexão Tor iniciada": "已启动 Tor 连接",
   "Relatório exportado": "已导出报告",
-  "Atualize a análise antes de verificar este arquivo.": "扫描此文件前请刷新分析。"
+  "Atualize a análise antes de verificar este arquivo.": "扫描此文件前请刷新分析。",
+  "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "WireGuard 配置无效。不允许脚本和命令。",
+  "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "系统凭据库不可用。导入配置前请设置安全密钥环。",
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "安装 UFW 以管理此发行版的防火墙。"
 }

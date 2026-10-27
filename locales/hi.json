@@ -392,5 +392,8 @@
   "Túnel VPN removido": "VPN टनल हटाई गई",
   "Conexão Tor iniciada": "Tor कनेक्शन शुरू हुआ",
   "Relatório exportado": "रिपोर्ट निर्यात हुई",
-  "Atualize a análise antes de verificar este arquivo.": "इस फ़ाइल को स्कैन करने से पहले विश्लेषण रीफ़्रेश करें।"
+  "Atualize a análise antes de verificar este arquivo.": "इस फ़ाइल को स्कैन करने से पहले विश्लेषण रीफ़्रेश करें।",
+  "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "WireGuard प्रोफ़ाइल अमान्य है। स्क्रिप्ट और कमांड की अनुमति नहीं है।",
+  "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "सिस्टम वॉल्ट उपलब्ध नहीं है। प्रोफ़ाइल आयात करने से पहले सुरक्षित कीरिंग सेट करें।",
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "इस वितरण पर फ़ायरवॉल प्रबंधित करने के लिए UFW स्थापित करें।"
 }

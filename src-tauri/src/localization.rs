@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 static CATALOGS: OnceLock<Vec<(&str, Value)>> = OnceLock::new();
 pub fn locale(choice: &str) -> String {
     let raw = if choice == "system" {
-        std::env::var("LANG").unwrap_or_else(|_| system_locale())
+        system_locale()
     } else {
         choice.into()
     };
@@ -26,15 +26,12 @@ pub fn locale(choice: &str) -> String {
     }
 }
 fn system_locale() -> String {
-    #[cfg(windows)]
-    {
-        crate::runner::ps("(Get-UICulture).Name").unwrap_or_else(|_| "en".into())
-    }
-    #[cfg(not(windows))]
-    {
-        "en".into()
-    }
+    static SYSTEM: OnceLock<String> = OnceLock::new();
+    SYSTEM
+        .get_or_init(|| sys_locale::get_locale().unwrap_or_else(|| "en".into()))
+        .clone()
 }
+
 pub fn translate(source: &str, language: &str) -> String {
     let locale = locale(language);
     if locale == "pt-BR" {

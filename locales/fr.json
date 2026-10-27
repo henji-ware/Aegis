@@ -392,5 +392,8 @@
   "Túnel VPN removido": "Tunnel VPN supprimé",
   "Conexão Tor iniciada": "Connexion Tor démarrée",
   "Relatório exportado": "Rapport exporté",
-  "Atualize a análise antes de verificar este arquivo.": "Actualisez l’analyse avant de vérifier ce fichier."
+  "Atualize a análise antes de verificar este arquivo.": "Actualisez l’analyse avant de vérifier ce fichier.",
+  "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "Profil WireGuard invalide. Les scripts et commandes sont interdits.",
+  "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "Le coffre système est indisponible. Configurez un trousseau sécurisé avant d’importer des profils.",
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "Installez UFW pour gérer le pare-feu sur cette distribution."
 }

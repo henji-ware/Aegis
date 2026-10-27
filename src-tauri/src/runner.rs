@@ -136,6 +136,7 @@ pub fn ps_json(script: &str) -> Result<serde_json::Value> {
 pub fn quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
+#[cfg(any(target_os = "macos", test))]
 pub fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }

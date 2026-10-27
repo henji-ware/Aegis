@@ -24,6 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CARGO_BUILD_JOBS: '2'
+      NO_STRIP: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,7 +50,13 @@ jobs:
         env:
           AEGIS_NATIVE_TEST_RESOURCES: .build/bundle-resources
       - run: node scripts/rust-notices.cjs
-      - run: npm run package -- --bundles ${{ matrix.bundles }}
+      - run: npm run package -- --verbose --bundles ${{ matrix.bundles }}
+      - run: node scripts/check-installers.cjs
+      - if: runner.os == 'Linux'
+        name: Validate Debian 13 installation dependencies
+        shell: bash
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/deb:/packages:ro" debian:trixie-slim sh -c 'apt-get update -qq && apt-get install -y --no-install-recommends /packages/*.deb && dpkg-deb -f /packages/*.deb Package Version Architecture'
       - uses: actions/upload-artifact@v4
         with:
           name: aegis-${{ runner.os }}-${{ runner.arch }}

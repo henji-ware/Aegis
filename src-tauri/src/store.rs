@@ -94,12 +94,12 @@ impl Store {
             recovery: None,
         };
         if file.exists() {
-            let text = fs::read_to_string(&file).map_err(|e| e.to_string())?;
+            let text = read_limited(&file, 32 * 1024 * 1024)?;
             match parse(&text) {
                 Ok(data) => result.data = data,
                 Err(_) => {
                     let data = parse(
-                        &fs::read_to_string(file.with_extension("json.bak"))
+                        &read_limited(&file.with_extension("json.bak"), 32 * 1024 * 1024)
                             .map_err(|_| "invalid-local-data-preserved")?,
                     )?;
                     fs::copy(

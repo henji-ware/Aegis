@@ -6,7 +6,7 @@ authors = ["Aegis contributors"]
 license = "MIT"
 repository = "https://github.com/henji-ware/Aegis"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [lib]
 name = "aegis_lib"
@@ -30,6 +30,7 @@ sysinfo = "0.38"
 get_if_addrs = "0.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 zeroize = "1"
+sys-locale = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Memory", "Win32_Storage_FileSystem"] }

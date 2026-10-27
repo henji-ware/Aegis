@@ -1,3 +1,5 @@
+#[cfg(any(debug_assertions, test))]
+use std::path::Path;
 mod antivirus;
 mod audit;
 mod firewall;
@@ -10,7 +12,7 @@ mod store;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Child,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -444,11 +446,70 @@ fn migrate(core: &Core) {
     }
     let _ = store::write_private(&core.dir.join("migration-checked"), b"1", true);
 }
+fn begin_close(app: tauri::AppHandle, core: Core) {
+    if core.closing.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        if core.scan_busy.load(Ordering::SeqCst)&&confirm(&app,&core,"Há uma tarefa do antivírus em andamento.","Sair interrompe a tarefa. O resultado não será considerado uma varredura concluída.","").is_err(){core.closing.store(false,Ordering::SeqCst);return;}
+        core.scan_cancel.store(true, Ordering::SeqCst);
+        let _ = privacy::stop_tor(&core, &app);
+        for _ in 0..80 {
+            if !core.scan_busy.load(Ordering::SeqCst) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        app.exit(0);
+    });
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let application=tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app,_,_|{if let Some(window)=app.get_webview_window("main"){let _=window.show();let _=window.set_focus();}})).plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_opener::init()).setup(|app|{let mut dir=app.path().app_data_dir()?;let mut resources=app.path().resource_dir()?.join("engines");#[cfg(debug_assertions)]{if let Some(path)=std::env::var_os("AEGIS_DATA_DIR"){dir=PathBuf::from(path);}resources=Path::new(env!("CARGO_MANIFEST_DIR")).join("../resources");}let core=Core::new(dir,resources).map_err(std::io::Error::other)?;migrate(&core);app.manage(core);Ok(())}).invoke_handler(tauri::generate_handler![aegis_call]).on_window_event(|window,event|{if let tauri::WindowEvent::CloseRequested{api,..}=event{let core=window.state::<Core>().inner().clone();if core.closing.swap(true,Ordering::SeqCst){api.prevent_close();return;}api.prevent_close();let app=window.app_handle().clone();std::thread::spawn(move||{if core.scan_busy.load(Ordering::SeqCst)&&confirm(&app,&core,"Há uma tarefa do antivírus em andamento.","Sair interrompe a tarefa. O resultado não será considerado uma varredura concluída.","").is_err(){core.closing.store(false,Ordering::SeqCst);return;}core.scan_cancel.store(true,Ordering::SeqCst);let _=privacy::stop_tor(&core,&app);for _ in 0..80{if !core.scan_busy.load(Ordering::SeqCst){break;}std::thread::sleep(std::time::Duration::from_millis(100));}app.exit(0);});}}).build(tauri::generate_context!()).expect("Unable to initialize Aegis");
-    application.run(|app, event| {
-        if let tauri::RunEvent::Exit = event {
+    let application = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let dir = app.path().app_data_dir()?;
+            #[cfg(debug_assertions)]
+            let dir = std::env::var_os("AEGIS_DATA_DIR")
+                .map(PathBuf::from)
+                .unwrap_or(dir);
+            #[cfg(debug_assertions)]
+            let resources = Path::new(env!("CARGO_MANIFEST_DIR")).join("../resources");
+            #[cfg(not(debug_assertions))]
+            let resources = app.path().resource_dir()?.join("engines");
+            let core = Core::new(dir, resources).map_err(std::io::Error::other)?;
+            migrate(&core);
+            app.manage(core);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![aegis_call])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                begin_close(
+                    window.app_handle().clone(),
+                    window.state::<Core>().inner().clone(),
+                );
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("Unable to initialize Aegis");
+    application.run(|app, event| match event {
+        tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() => {
+            let core = app.state::<Core>();
+            if core.scan_busy.load(Ordering::SeqCst) {
+                api.prevent_exit();
+                begin_close(app.clone(), core.inner().clone());
+            }
+        }
+        tauri::RunEvent::Exit => {
             let core = app.state::<Core>();
             core.scan_cancel.store(true, Ordering::SeqCst);
             if let Ok(mut slot) = core.tor_child.lock() {
@@ -463,8 +524,10 @@ pub fn run() {
                 }
             };
         }
+        _ => (),
     });
 }
+
 #[cfg(test)]
 mod native_tests {
     use super::*;

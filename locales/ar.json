@@ -392,5 +392,8 @@
   "Túnel VPN removido": "تمت إزالة نفق VPN",
   "Conexão Tor iniciada": "بدأ اتصال Tor",
   "Relatório exportado": "تم تصدير التقرير",
-  "Atualize a análise antes de verificar este arquivo.": "حدّث التحليل قبل فحص هذا الملف."
+  "Atualize a análise antes de verificar este arquivo.": "حدّث التحليل قبل فحص هذا الملف.",
+  "Perfil WireGuard inválido. Scripts e comandos não são permitidos.": "ملف WireGuard غير صالح. لا يُسمح بالبرامج النصية والأوامر.",
+  "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "خزنة النظام غير متاحة. اضبط سلسلة مفاتيح آمنة قبل استيراد الملفات.",
+  "Instale o UFW para gerenciar o firewall nesta distribuição.": "ثبّت UFW لإدارة الجدار الناري في هذه التوزيعة."
 }
