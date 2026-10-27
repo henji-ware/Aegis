@@ -10,6 +10,38 @@ concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: .build/playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-evidence
+          path: .aegis-test/screens-040/*.png
+  rust-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        id: audit-cache
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-0.22.2-${{ runner.os }}-${{ runner.arch }}
+      - if: steps.audit-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - run: cargo audit --file src-tauri/Cargo.lock
   desktop:
     strategy:
       fail-fast: false
@@ -39,7 +71,23 @@ jobs:
           workspaces: src-tauri
           cache-on-failure: true
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf rpm libfuse2
+        name: Install Linux build dependencies
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          files = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.sources'), *Path('/etc/apt/sources.list.d').glob('*.list')]
+          for file in files:
+              if file.exists():
+                  text = file.read_text()
+                  updated = text.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu').replace('https://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
+                  if updated != text:
+                      file.write_text(updated)
+          PY
+          sudo -E apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60 update
+          sudo -E apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60 install -y libwebkit2gtk-4.1-dev build-essential libssl-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf rpm rpm2cpio cpio libfuse2
       - run: npm ci
       - run: npm run check
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -58,11 +106,14 @@ jobs:
         run: ./scripts/ensure-webview-ci.ps1
       - if: runner.os == 'Windows'
         run: node scripts/test-native-windows.cjs
+      - if: runner.os == 'Windows'
+        name: Validate NSIS and MSI installation, native UI and removal
+        run: node scripts/test-installation-windows.cjs
       - if: runner.os == 'Linux'
         name: Validate Debian 13 installation dependencies
         shell: bash
         run: |
-          docker run --rm -v "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/deb:/packages:ro" debian:trixie-slim sh -c 'apt-get update -qq && apt-get install -y --no-install-recommends /packages/*.deb && dpkg-deb -f /packages/*.deb Package Version Architecture'
+          docker run --rm -v "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/deb:/packages:ro" debian:trixie-slim sh -c 'set -eu; apt-get update -qq; apt-get install -y --no-install-recommends /packages/*.deb; dpkg-deb -f /packages/*.deb Package Version Architecture; package=$(dpkg-deb -f /packages/*.deb Package); test -x /usr/bin/aegis-desktop; apt-get purge -y "$package"; test ! -e /usr/bin/aegis-desktop; echo "PASS: Debian 13 package installed and purged."'
       - uses: actions/upload-artifact@v4
         with:
           name: aegis-${{ runner.os }}-${{ runner.arch }}
@@ -74,8 +125,16 @@ jobs:
             src-tauri/target/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.dmg
           if-no-files-found: error
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-diagnostics-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            .build/*install*.log
+            .build/msi-install-evidence.json
+          if-no-files-found: ignore
   publish:
-    needs: desktop
+    needs: [frontend, rust-audit, desktop]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]'))
     runs-on: ubuntu-latest
     permissions:
@@ -97,6 +156,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Aegis $VERSION preview" --prerelease --draft --notes-file docs/RELEASE-NOTES.md
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Aegis $VERSION" --draft --notes-file docs/RELEASE-NOTES.md
           gh release upload "v$VERSION" release-assets/*
-          gh release edit "v$VERSION" --draft=false --prerelease
+          gh release edit "v$VERSION" --draft=false --prerelease=false --latest=true

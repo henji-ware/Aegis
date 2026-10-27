@@ -1,6 +1,6 @@
 [package]
 name = "aegis-desktop"
-version = "0.4.0"
+version = "0.4.1"
 description = "Local desktop security and privacy application"
 authors = ["Aegis contributors"]
 license = "MIT"
@@ -27,7 +27,6 @@ chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"
 regex = "1"
 sysinfo = "0.38"
-get_if_addrs = "0.5"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
 zeroize = "1"
 sys-locale = "0.3"

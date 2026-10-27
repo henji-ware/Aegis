@@ -66,7 +66,29 @@ pub fn parse(text: &str) -> Result<Value> {
         return Err("unsupported-store-version".into());
     }
     for key in ["history", "audits", "scans", "rules", "profiles"] {
-        if !value[key].is_array() {
+        if !value[key]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
+        {
+            return Err("invalid-local-data".into());
+        }
+    }
+    for key in ["activeScan", "activeVpn", "firewallBackup"] {
+        if !value[key].is_null() && !value[key].is_object() {
+            return Err("invalid-local-data".into());
+        }
+    }
+    for profile in value["profiles"].as_array().unwrap() {
+        let meta = &profile["meta"];
+        if !profile["id"].is_string()
+            || !profile["name"].is_string()
+            || !meta.is_object()
+            || !meta["dns"]
+                .as_array()
+                .is_some_and(|items| items.iter().all(Value::is_string))
+            || !meta["fullTunnel"].is_boolean()
+            || !meta["ipv6"].is_boolean()
+        {
             return Err("invalid-local-data".into());
         }
     }
@@ -94,8 +116,7 @@ impl Store {
             recovery: None,
         };
         if file.exists() {
-            let text = read_limited(&file, 32 * 1024 * 1024)?;
-            match parse(&text) {
+            match read_limited(&file, 32 * 1024 * 1024).and_then(|text| parse(&text)) {
                 Ok(data) => result.data = data,
                 Err(_) => {
                     let data = parse(
@@ -242,6 +263,49 @@ mod tests {
             .file_name()
             .to_string_lossy()
             .starts_with("state.corrupt")));
+    }
+    #[test]
+    fn malformed_runtime_state_recovers_without_panicking() {
+        for bad in [json!(true), json!("running"), json!([])] {
+            let d = tempfile::tempdir().unwrap();
+            let mut s = Store::open(d.path().into()).unwrap();
+            s.event("test", "keep", json!(""), "success").unwrap();
+            s.save().unwrap();
+            let mut corrupt = defaults();
+            corrupt["activeScan"] = bad;
+            let original = serde_json::to_string(&corrupt).unwrap();
+            fs::write(d.path().join("state.json"), &original).unwrap();
+            let recovered = Store::open(d.path().into()).unwrap();
+            assert!(recovered.recovery.is_some());
+            assert_eq!(recovered.data["history"][0]["title"], "keep");
+            let preserved = fs::read_dir(d.path())
+                .unwrap()
+                .map(|e| e.unwrap().path())
+                .find(|p| {
+                    p.file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with("state.corrupt")
+                })
+                .unwrap();
+            assert_eq!(fs::read_to_string(preserved).unwrap(), original);
+        }
+    }
+    #[test]
+    fn malformed_collections_and_profile_metadata_are_rejected() {
+        for field in ["history", "audits", "scans", "rules", "profiles"] {
+            let mut data = defaults();
+            data[field] = json!([null]);
+            assert!(parse(&data.to_string()).is_err(), "{field}");
+        }
+        for field in ["activeVpn", "firewallBackup"] {
+            let mut data = defaults();
+            data[field] = json!(false);
+            assert!(parse(&data.to_string()).is_err(), "{field}");
+        }
+        let mut data = defaults();
+        data["profiles"] = json!([{"id":"profile","name":"VPN","meta":{"dns":null,"fullTunnel":true,"ipv6":true}}]);
+        assert!(parse(&data.to_string()).is_err());
     }
 }
 

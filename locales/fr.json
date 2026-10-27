@@ -397,5 +397,6 @@
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "Le coffre système est indisponible. Configurez un trousseau sécurisé avant d’importer des profils.",
   "Instale o UFW para gerenciar o firewall nesta distribuição.": "Installez UFW pour gérer le pare-feu sur cette distribution.",
   "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "Données locales restaurées depuis la sauvegarde précédente. Le fichier invalide a été conservé.",
-  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "Migration terminée. Réimportez les profils VPN dans le nouveau coffre ; les anciennes données sont conservées."
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "Migration terminée. Réimportez les profils VPN dans le nouveau coffre ; les anciennes données sont conservées.",
+  "{count} verificação ainda precisa de confirmação.": "{count} vérification reste à confirmer."
 }

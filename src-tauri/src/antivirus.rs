@@ -6,14 +6,41 @@ use crate::{
 use regex::Regex;
 use serde_json::{json, Value};
 use std::{
+    collections::HashSet,
     fs,
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
-    sync::atomic::Ordering,
+    sync::atomic::{AtomicBool, Ordering},
     thread,
     time::Duration,
 };
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
+const SCAN_OUTPUT_BATCH: usize = 256;
+fn drain_output_batch(
+    receiver: &std::sync::mpsc::Receiver<String>,
+    cancelled: &AtomicBool,
+    mut accept: impl FnMut(&str),
+) {
+    for line in receiver.try_iter().take(SCAN_OUTPUT_BATCH) {
+        accept(&line);
+        if cancelled.load(Ordering::SeqCst) {
+            break;
+        }
+    }
+}
+fn quick_targets(folders: impl IntoIterator<Item = Option<PathBuf>>) -> Vec<PathBuf> {
+    let mut targets = vec![];
+    let mut seen = HashSet::new();
+    for folder in folders.into_iter().flatten() {
+        if folder.is_absolute() && folder.is_dir() {
+            let identity = folder.canonicalize().unwrap_or_else(|_| folder.clone());
+            if seen.insert(identity) {
+                targets.push(folder);
+            }
+        }
+    }
+    targets
+}
 pub fn signatures(dir: &Path) -> Value {
     let mut files = vec![];
     for name in ["daily.cvd", "daily.cld", "main.cvd", "main.cld"] {
@@ -125,12 +152,11 @@ impl ScanOutput {
         json!({"scanned":scanned,"infected":infected,"errors":errors,"limited":limited,"partial":partial,"threats":self.threats,"threatsTruncated":infected>self.threats.len() as u64,"state":if infected>0{"threats"}else if code==0&&!partial{"completed"}else{"error"}})
     }
 }
-pub fn start(
-    core: &Core,
-    app: &tauri::AppHandle,
-    kind: &str,
-    selected: Option<PathBuf>,
-) -> Result<Value> {
+fn reserve(core: &Core) -> Result<()> {
+    let _slot = core.scan_child.lock().map_err(|_| "process-lock")?;
+    if core.closing.load(Ordering::SeqCst) {
+        return Err("cancelled".into());
+    }
     if core
         .scan_busy
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -139,6 +165,20 @@ pub fn start(
         return Err("antivirus-busy".into());
     }
     core.scan_cancel.store(false, Ordering::SeqCst);
+    Ok(())
+}
+pub fn cancel(core: &Core) -> Result<()> {
+    let _slot = core.scan_child.lock().map_err(|_| "process-lock")?;
+    core.scan_cancel.store(true, Ordering::SeqCst);
+    Ok(())
+}
+pub fn start(
+    core: &Core,
+    app: &tauri::AppHandle,
+    kind: &str,
+    selected: Option<PathBuf>,
+) -> Result<Value> {
+    reserve(core)?;
     let started = start_inner(core, app, kind, selected);
     if started.is_err() {
         core.scan_busy.store(false, Ordering::SeqCst);
@@ -197,19 +237,10 @@ fn start_inner(
                     vec![PathBuf::from("/")]
                 }
             }
-            _ => {
-                let home = if cfg!(windows) {
-                    std::env::var_os("USERPROFILE")
-                } else {
-                    std::env::var_os("HOME")
-                }
-                .ok_or("home-unavailable")?;
-                ["Downloads", "Desktop"]
-                    .iter()
-                    .map(|d| PathBuf::from(&home).join(d))
-                    .filter(|p| p.exists())
-                    .collect()
-            }
+            _ => quick_targets([
+                app.path().download_dir().ok(),
+                app.path().desktop_dir().ok(),
+            ]),
         };
         if targets.is_empty() || targets.iter().any(|p| !p.is_absolute() || !p.exists()) {
             return Err("selection-required".into());
@@ -265,7 +296,7 @@ fn start_inner(
             return Err(error);
         }
     }
-    let (tx, rx) = std::sync::mpsc::sync_channel::<String>(256);
+    let (tx, rx) = std::sync::mpsc::sync_channel::<String>(SCAN_OUTPUT_BATCH);
     for pipe in [Box::new(stdout) as Box<dyn Read + Send>, Box::new(stderr)] {
         let sender = tx.clone();
         thread::spawn(move || {
@@ -296,8 +327,8 @@ fn start_inner(
         let mut exit = None;
         let mut checkpoint = std::time::Instant::now();
         loop {
-            while let Ok(line) = rx.try_recv() {
-                output.accept(&line);
+            drain_output_batch(&rx, &state.scan_cancel, |line| {
+                output.accept(line);
                 if let Ok(mut job) = state.job.lock() {
                     let lines = job["lines"].as_array_mut().unwrap();
                     lines.push(json!(line.chars().take(1500).collect::<String>()));
@@ -305,7 +336,7 @@ fn start_inner(
                         lines.remove(0);
                     }
                 }
-            }
+            });
             if let Ok(mut child) = state.scan_child.lock() {
                 if let Some(child) = child.as_mut() {
                     if state.scan_cancel.load(Ordering::SeqCst) {
@@ -426,6 +457,69 @@ fn start_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cancellation_of_reserved_scan_is_not_overwritten() {
+        let directory = tempfile::tempdir().unwrap();
+        let core = Core::new(directory.path().into(), directory.path().into()).unwrap();
+        reserve(&core).unwrap();
+        cancel(&core).unwrap();
+        assert!(reserve(&core).is_err());
+        assert!(core.scan_cancel.load(Ordering::SeqCst));
+        assert!(core.scan_child.lock().unwrap().is_none());
+    }
+    #[test]
+    fn output_flood_yields_to_cancellation() {
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        sender.send("first output".to_string()).unwrap();
+        let cancelled = AtomicBool::new(false);
+        let mut processed = 0;
+        drain_output_batch(&receiver, &cancelled, |_| {
+            processed += 1;
+            sender.send("more output".to_string()).unwrap();
+            cancelled.store(true, Ordering::SeqCst);
+        });
+        assert_eq!(processed, 1);
+        assert!(cancelled.load(Ordering::SeqCst));
+        assert!(
+            receiver.try_recv().is_ok(),
+            "output remains queued while cancellation can be handled"
+        );
+    }
+    #[test]
+    fn output_flood_cannot_starve_process_exit_polling() {
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        sender.send("first output".to_string()).unwrap();
+        let mut processed = 0;
+        drain_output_batch(&receiver, &AtomicBool::new(false), |_| {
+            processed += 1;
+            sender.send("more output".to_string()).unwrap();
+        });
+        assert_eq!(processed, SCAN_OUTPUT_BATCH);
+        assert!(receiver.try_recv().is_ok());
+    }
+    #[test]
+    fn quick_scan_uses_resolved_redirected_folders_without_english_fallbacks() {
+        let root = tempfile::tempdir().unwrap();
+        let downloads = root.path().join("Baixados personalizados");
+        let desktop = root.path().join("OneDrive").join("Área de Trabalho");
+        fs::create_dir_all(&downloads).unwrap();
+        fs::create_dir_all(&desktop).unwrap();
+        assert_eq!(
+            quick_targets([Some(downloads.clone()), Some(desktop.clone())]),
+            vec![downloads.clone(), desktop]
+        );
+        assert_eq!(
+            quick_targets([Some(downloads.clone()), Some(downloads.clone())]),
+            vec![downloads]
+        );
+    }
+    #[test]
+    fn quick_scan_has_no_successful_empty_or_file_target() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("not-a-directory");
+        fs::write(&file, "fixture").unwrap();
+        assert!(quick_targets([Some(file), Some(root.path().join("missing")), None]).is_empty());
+    }
     #[test]
     fn detection_survives_truncated_output() {
         let mut out = ScanOutput::default();

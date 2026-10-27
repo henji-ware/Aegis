@@ -11,6 +11,27 @@ pub struct Output {
     pub code: i32,
     pub text: String,
 }
+const MAX_OUTPUT: usize = 8 * 1024 * 1024;
+fn read_output(mut pipe: impl Read) -> Result<String> {
+    let mut bytes = Vec::new();
+    let mut buffer = [0; 8192];
+    let mut truncated = false;
+    loop {
+        let n = pipe
+            .read(&mut buffer)
+            .map_err(|_| "operation-output-read-failed")?;
+        if n == 0 {
+            break;
+        }
+        let remaining = MAX_OUTPUT - bytes.len();
+        truncated |= n > remaining;
+        bytes.extend_from_slice(&buffer[..n.min(remaining)]);
+    }
+    if truncated {
+        return Err("operation-output-too-large".into());
+    }
+    Ok(String::from_utf8_lossy(&bytes).to_string())
+}
 pub fn command(file: &Path, args: &[String]) -> Command {
     let mut command = Command::new(file);
     command.args(args);
@@ -44,20 +65,7 @@ pub fn capture(
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("missing-process-output")?;
     let stderr = child.stderr.take().ok_or("missing-process-output")?;
-    let read = |mut pipe: Box<dyn Read + Send>| {
-        thread::spawn(move || {
-            let mut bytes = Vec::new();
-            let mut buffer = [0; 8192];
-            while let Ok(n) = pipe.read(&mut buffer) {
-                if n == 0 {
-                    break;
-                }
-                let remaining = 8 * 1024 * 1024usize - bytes.len();
-                bytes.extend_from_slice(&buffer[..n.min(remaining)]);
-            }
-            String::from_utf8_lossy(&bytes).to_string()
-        })
-    };
+    let read = |pipe: Box<dyn Read + Send>| thread::spawn(move || read_output(pipe));
     let out = read(Box::new(stdout));
     let err = read(Box::new(stderr));
     if let Some(bytes) = input {
@@ -81,8 +89,8 @@ pub fn capture(
             }
         }
     };
-    let stdout = out.join().unwrap_or_default();
-    let stderr = err.join().unwrap_or_default();
+    let stdout = out.join().map_err(|_| "operation-output-read-failed")??;
+    let stderr = err.join().map_err(|_| "operation-output-read-failed")??;
     Ok(Output {
         code: status.code().unwrap_or(-1),
         text: if status.success() {
@@ -299,5 +307,16 @@ mod tests {
         assert_eq!(quote("a'$(b)"), "'a''$(b)'");
         assert_eq!(shell_quote("a'b"), "'a'\\''b'");
         assert!(!encoded("$x='☘'").contains('$'));
+    }
+    #[test]
+    fn truncated_output_is_never_successful_observation() {
+        assert_eq!(
+            read_output(std::io::Cursor::new(b"complete")).unwrap(),
+            "complete"
+        );
+        assert_eq!(
+            read_output(std::io::Cursor::new(vec![b'x'; MAX_OUTPUT + 1])).unwrap_err(),
+            "operation-output-too-large"
+        );
     }
 }

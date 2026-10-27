@@ -8,7 +8,7 @@ Free and open-source desktop security tools, built with **Tauri 2, Rust, React, 
 
 ## Download
 
-Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Version 0.4.0 is a development preview. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
+Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Version 0.4.1 is the first standard release on the stable channel. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
 
 | Platform | Packages | Architecture |
 |---|---|---|
@@ -16,7 +16,7 @@ Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegi
 | Linux | `.deb`, `.rpm`, `.AppImage` | x64 |
 | macOS | `.dmg` | Apple silicon |
 
-The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. Package dependencies and CI results are documented with each release.
+The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. The 0.4.1 release validates installation and removal on Debian 13. Package dependencies and the exact CI results are documented with each release.
 
 ## Features
 
@@ -34,7 +34,7 @@ Connection analysis uses local evidence. A listening port or a temporary executa
 
 ## Interface and languages
 
-Dark green surfaces, a point-cloud constellation, local process selection and pointer parallax. Decorative stars and lines are abstract; they do not represent geography, measured traffic or detected attacks. Continuous movement stops with reduced motion and pauses while hidden.
+Black surfaces with restrained dark green details, an orbital point network, local process selection and pointer parallax. The overview separates diagnostic indicators, connections, device state and module access. Decorative stars and lines are abstract; they do not represent geography, measured traffic or detected attacks. Continuous movement stops with reduced motion and pauses while hidden.
 
 Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are immediate and saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
 
@@ -63,7 +63,7 @@ npm run package
 
 ## Validation and migration
 
-See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
+See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [dependency review](docs/DEPENDENCY-REVIEW.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
 
 Electron data is preserved when migrating. Compatible settings, history and firewall recovery information are copied to the Tauri store. VPN profiles need to be reimported into the new OS credential vault. An existing owned tunnel is retained for explicit recovery/disconnection when its configuration can be copied. Disconnect VPNs using the previous version before switching whenever possible. Invalid local data is preserved and recovered from its last valid backup instead of silently discarded.
 

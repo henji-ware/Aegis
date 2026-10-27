@@ -212,9 +212,14 @@ pub fn observe(active: &Value) -> Value {
         } else {
             t.to_string()
         };
-        let interfaces = get_if_addrs::get_if_addrs().map_err(|e| e.to_string())?;
-        let present = interfaces.iter().any(|i| i.name == name);
-        Ok(json!({"present":present,"interfaceActive":present,"interfaceName":name}))
+        let interfaces = sysinfo::Networks::new_with_refreshed_list();
+        if interfaces.is_empty() {
+            return Err("network-status-unavailable".into());
+        }
+        let found = interfaces.iter().find(|(interface, _)| *interface == &name);
+        let present = found.is_some();
+        let active = found.is_some_and(|(_, data)| !data.ip_networks().is_empty());
+        Ok(json!({"present":present,"interfaceActive":active,"interfaceName":name}))
     })();
     result.unwrap_or_else(|e| json!({"present":null,"interfaceActive":null,"error":e}))
 }
@@ -461,7 +466,13 @@ pub fn tor_status(core: &Core) -> Result<Value> {
     value["installed"] = json!(engine(&core.resources, "tor", "tor").is_some());
     Ok(value)
 }
-pub fn start_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+fn reserve_tor(core: &Core) -> Result<()> {
+    // Stop and start must share this lock: a stop request cannot be overwritten
+    // between reserving the task and clearing the preceding task's cancel flag.
+    let _slot = core.tor_child.lock().map_err(|_| "process-lock")?;
+    if core.closing.load(Ordering::SeqCst) {
+        return Err("cancelled".into());
+    }
     if core
         .tor_busy
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -470,6 +481,10 @@ pub fn start_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
         return Err("tor-already-running".into());
     }
     core.tor_cancel.store(false, Ordering::SeqCst);
+    Ok(())
+}
+pub fn start_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+    reserve_tor(core)?;
     let result = start_tor_inner(core, app);
     if result.is_err() && core.tor_child.lock().map(|s| s.is_none()).unwrap_or(false) {
         core.tor_busy.store(false, Ordering::SeqCst);
@@ -597,11 +612,16 @@ fn start_tor_inner(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
     )?;
     Ok(value)
 }
-pub fn stop_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+fn cancel_tor(core: &Core) -> Result<()> {
+    let mut slot = core.tor_child.lock().map_err(|_| "process-lock")?;
     core.tor_cancel.store(true, Ordering::SeqCst);
-    if let Some(child) = core.tor_child.lock().map_err(|_| "process-lock")?.as_mut() {
+    if let Some(child) = slot.as_mut() {
         let _ = child.kill();
     }
+    Ok(())
+}
+pub fn stop_tor(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+    cancel_tor(core)?;
     let mut tor = core.tor.lock().map_err(|_| "tor-lock")?;
     tor["state"] = json!("stopped");
     tor["progress"] = json!(0);
@@ -632,5 +652,24 @@ mod tests {
         let (_, meta) = profile(&good()).unwrap();
         assert_eq!(meta["fullTunnel"], true);
         assert_eq!(meta["ipv6"], true);
+    }
+    #[test]
+    fn stop_cancels_reserved_start_before_spawn() {
+        let dir = tempfile::tempdir().unwrap();
+        let core = Core::new(dir.path().into(), dir.path().into()).unwrap();
+        reserve_tor(&core).unwrap();
+        cancel_tor(&core).unwrap();
+        assert!(core.tor_cancel.load(Ordering::SeqCst));
+        assert!(reserve_tor(&core).is_err());
+        assert!(core.tor_cancel.load(Ordering::SeqCst));
+        assert!(core.tor_child.lock().unwrap().is_none());
+    }
+    #[test]
+    fn closing_prevents_tor_reservation() {
+        let dir = tempfile::tempdir().unwrap();
+        let core = Core::new(dir.path().into(), dir.path().into()).unwrap();
+        core.closing.store(true, Ordering::SeqCst);
+        assert!(reserve_tor(&core).is_err());
+        assert!(!core.tor_busy.load(Ordering::SeqCst));
     }
 }

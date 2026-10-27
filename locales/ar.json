@@ -397,5 +397,6 @@
   "O cofre do sistema está indisponível. Configure um chaveiro seguro antes de importar perfis.": "خزنة النظام غير متاحة. اضبط سلسلة مفاتيح آمنة قبل استيراد الملفات.",
   "Instale o UFW para gerenciar o firewall nesta distribuição.": "ثبّت UFW لإدارة الجدار الناري في هذه التوزيعة.",
   "Dados locais recuperados da cópia anterior. O arquivo inválido foi preservado.": "استُعيدت البيانات المحلية من النسخة السابقة. احتُفظ بالملف غير الصالح.",
-  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "اكتمل الترحيل. أعد استيراد ملفات VPN إلى الخزنة الجديدة؛ احتُفظ بالبيانات السابقة."
+  "Migração concluída. Reimporte os perfis VPN no novo cofre; os dados anteriores foram preservados.": "اكتمل الترحيل. أعد استيراد ملفات VPN إلى الخزنة الجديدة؛ احتُفظ بالبيانات السابقة.",
+  "{count} verificação ainda precisa de confirmação.": "لا يزال {count} فحص بحاجة إلى تأكيد."
 }

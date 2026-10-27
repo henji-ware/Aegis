@@ -1,13 +1,18 @@
-# Validation
+# Release validation
 
-The 0.4.0 migration is validated in layers. Results refer to the tested commit; check the linked GitHub Actions run before using a development preview.
+Version 0.4.1 uses the stable release channel. Publication requires successful frontend, Rust dependency-audit and native desktop jobs. Results apply to the exact release commit; consult the release's GitHub Actions run for executed checks.
 
-- Frontend TypeScript compilation and Vite production build.
-- Catalog parity and interpolation checks for ten locales.
-- Browser UI integration: ten languages across eight screens, Arabic RTL, diagnostic recommendations, legacy history localization, connection details, generic errors with preserved originals, language persistence and no horizontal page overflow.
-- Constellation animation, pointer parallax, reduced-motion freeze and WebGL fallback. UI integration uses mocked native transport; it is not a native WebView integration test.
-- Rust unit tests: strict preferences, atomic store recovery, interrupted scans, TCP parsers, loopback classification, local review signals, profile validation, shell quoting, port validation, retained antivirus detections, partial scans and HTML escaping.
-- CI native smoke checks run bundled ClamAV and Tor, enumerate local TCP sockets and query Windows protection states where applicable. A benign custom test fixture and local test signature exercise the ClamAV process/parser without downloading malware or changing firewall/VPN state.
-- Installer construction on Windows, Ubuntu and macOS runners. Building a package is not an interactive install/uninstall test or proof of compatibility with every target OS release.
+| Layer | Checks |
+| --- | --- |
+| Frontend | TypeScript compilation, Vite production build, catalog parity, parameters, constrained Tauri capabilities and shared report messages. |
+| UI integration | Ten languages across eight screens, Arabic RTL, original evidence, recommendations, history, errors, language persistence and no horizontal overflow. Constellation motion, pointer parallax, reduced-motion freeze and WebGL fallback. This layer uses mocked native transport. |
+| Dependency audit | npm audit fails on high/critical advisories; cargo-audit checks the locked Rust dependencies against RustSec. Warnings and tool output remain visible in CI. This is not an independent security audit. |
+| Rust regression | Store validation/recovery, interrupted scans, bounded command output, socket parsing and incomplete snapshots, loopback classification, local review signals, Known Folder scan targets, cancellation, profile validation, ownership reconciliation, shell quoting and HTML escaping. |
+| Native engines | Bundled ClamAV and Tor execute on Windows x64, Linux x64 and macOS Apple silicon. A benign fixture and custom local test signature exercise the antivirus process/parser; no malware download is required. TCP inspection and available Windows protection-state queries run read-only. |
+| Windows | MSI payload extraction plus native UI Automation. NSIS and MSI installation into isolated CI directories, real installed-app UI/device/ClamAV/diagnostic checks, and uninstall. |
+| Linux | DEB metadata/payload, RPM metadata/integrity and AppImage extraction; Debian 13 dependency resolution, install and removal. |
+| macOS | DMG mount/copy/removal checks and app bundle ad-hoc signature verification, plus native engine checks. Apple notarization and a full interactive macOS GUI test are not implied. |
 
-No real firewall hardening, VPN activation, protection-policy change or external reputation lookup is required by the automated checks. ClamAV definition freshness, real provider tunnels, DNS leak protection, Apple notarization and trusted Windows publisher signing are not claimed as validated by these tests.
+Automated release checks do not activate a real VPN, enable Tor, harden the firewall or change endpoint-protection policy. Real provider tunnels, DNS leak protection, definition freshness after installation, every supported desktop environment, trusted Windows publisher signing and Apple Developer ID/notarization remain outside this test matrix.
+
+The absence of known dependency advisories or a completed antivirus scan is not proof that software is free of vulnerabilities or malware. Unknown and incomplete diagnostic evidence is retained as such.
