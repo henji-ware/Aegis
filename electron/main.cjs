@@ -10,6 +10,9 @@ const {Firewall}=require('./firewall.cjs');
 const {audit}=require('./audit.cjs');
 const {systemInfo,connections,probe}=require('./platform.cjs');
 const {publicError}=require('./validation.cjs');
+const {translate,validateSettings}=require('./localization.cjs');
+const {renderReport}=require('./report.cjs');
+const tx=(source,values={})=>translate(source,store?.state.settings.language||'system',values,app.getLocale());
 protocol.registerSchemesAsPrivileged([{scheme:'aegis',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 app.setName('Aegis');
 if(process.env.AEGIS_DATA_DIR) app.setPath('userData',path.resolve(process.env.AEGIS_DATA_DIR));
@@ -25,24 +28,22 @@ const external={
   sourceTor:'https://gitlab.torproject.org/tpo/core/tor',sourceWireguard:'https://git.zx2c4.com/wireguard-windows/',
 };
 async function confirm(title,message,detail){
-  const result=await dialog.showMessageBox(win,{type:'question',title,message,detail,buttons:['Cancelar','Continuar'],defaultId:0,cancelId:0,noLink:true});
+  title=tx(title);message=tx(message);detail=tx(detail);
+  const result=await dialog.showMessageBox(win,{type:'question',title,message,detail,buttons:[tx('Cancelar'),tx('Continuar')],defaultId:0,cancelId:0,noLink:true});
   if(result.response!==1)throw new Error('Operação cancelada.');
 }
 async function mutate(fn){
   if(mutation)throw new Error('Aguarde a operação atual terminar.');
   mutation=true;try{return await fn();}finally{mutation=false;}
 }
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function exportReport(){
-  const result=await dialog.showSaveDialog(win,{title:'Exportar relatório local',defaultPath:'Aegis-relatorio-'+new Date().toISOString().slice(0,10)+'.html',filters:[{name:'Relatório HTML',extensions:['html']}]});
+  const result=await dialog.showSaveDialog(win,{title:tx("Exportar relatório local"),defaultPath:'Aegis-report-'+new Date().toISOString().slice(0,10)+'.html',filters:[{name:tx("Relatório HTML"),extensions:['html']}]});
   if(result.canceled)return null;
-  const last=store.state.audits[0],checks=last?.checks||[];
-  const scan=store.state.scans.filter(s=>s.type!=='update').slice(0,10);
-  const html='<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><title>Aegis · Relatório</title><style>body{font:15px system-ui;max-width:960px;margin:50px auto;padding:24px;color:#172523}h1{font-size:42px}h2{margin-top:36px}table{border-collapse:collapse;width:100%}td,th{text-align:left;vertical-align:top;padding:14px;border-bottom:1px solid #ddd}small{color:#576763}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>Aegis</h1><p>Relatório local · '+escapeHtml(new Date().toLocaleString('pt-BR'))+'</p><p>Este relatório apresenta observações pontuais. Itens não verificados não foram considerados seguros.</p><h2>Diagnóstico</h2><p>'+escapeHtml(last?.system?.os||'Sem auditoria')+' · '+escapeHtml(last?.at||'')+'</p><table><tr><th>Verificação</th><th>Estado</th><th>Evidência e orientação</th></tr>'+checks.map(c=>'<tr><td>'+escapeHtml(c.title)+'</td><td>'+escapeHtml(c.status)+'</td><td>'+escapeHtml(c.evidence)+'<p>'+escapeHtml(c.recommendation)+'</p></td></tr>').join('')+'</table><h2>Antivírus · ClamAV</h2>'+scan.map(s=>'<h3>'+escapeHtml(s.startedAt)+' · '+escapeHtml(s.state)+'</h3><p>'+escapeHtml(JSON.stringify(s.summary||{}))+'</p><pre>'+escapeHtml(s.lines.join('\n'))+'</pre>').join('')+'<h2>Histórico recente</h2><table>'+store.state.history.slice(0,50).map(e=>'<tr><td>'+escapeHtml(e.at)+'</td><td>'+escapeHtml(e.title)+'</td><td>'+escapeHtml(e.detail)+'</td></tr>').join('')+'</table><p><small>Gerado localmente pelo Aegis. As chaves privadas de VPN não fazem parte do relatório. Revise os dados locais antes de compartilhar.</small></p></html>';
+  const html=renderReport(store.state,{system:app.getLocale()});
   await fs.writeFile(result.filePath,html,'utf8');store.event('report','Relatório exportado','Arquivo HTML salvo no local escolhido.','success');return result.filePath;
 }
 async function createWindow(){
-  win=new BrowserWindow({width:1440,height:960,minWidth:1080,minHeight:760,show:false,backgroundColor:'#0b0d10',title:'Aegis',autoHideMenuBar:true,icon:path.join(__dirname,'..','assets','icon.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,webviewTag:false}});
+  win=new BrowserWindow({width:1440,height:960,minWidth:1080,minHeight:760,show:false,backgroundColor:'#07100d',title:'Aegis',autoHideMenuBar:true,icon:path.join(__dirname,'..','assets','icon.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,webviewTag:false}});
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',(event,url)=>{if(!url.startsWith('aegis://app/')&&!(dev&&new URL(url).origin==='http://127.0.0.1:5173'))event.preventDefault();});
   win.once('ready-to-show',()=>win.show());
@@ -78,17 +79,17 @@ app.whenReady().then(async()=>{
     'av:update':()=>av.startUpdate(),
     'av:scan':async payload=>{
       let selected;
-      if(payload?.type==='custom'){const result=await dialog.showOpenDialog(win,{title:'Escolha o que deseja verificar',properties:['openFile','openDirectory','dontAddToRecent']});if(result.canceled)return null;selected=result.filePaths[0];}
+      if(payload?.type==='custom'){const result=await dialog.showOpenDialog(win,{title:tx("Escolha o que deseja verificar"),properties:['openFile','openDirectory','dontAddToRecent']});if(result.canceled)return null;selected=result.filePaths[0];}
       return av.startScan(payload?.type,selected);
     },
     'av:cancel':()=>av.cancel(),
     'firewall:status':()=>firewall.status(),
     'firewall:harden':()=>mutate(async()=>{await confirm('Reforçar firewall','Ativar o firewall e restringir novas conexões de entrada?',process.platform==='win32'?'Ativa os perfis Domínio, Privado e Público e define o padrão de entrada como Bloquear. As regras existentes continuam válidas. A configuração local anterior será salva para restauração.':process.platform==='darwin'?'Ativa o firewall de aplicações e o modo discreto. A configuração anterior será salva.':'Define o padrão de entrada do UFW como Negar e ativa o firewall. Isso pode interromper acesso remoto e serviços. As regras existentes permanecem.');return firewall.harden();}),
     'firewall:restore':()=>mutate(async()=>{await confirm('Restaurar firewall','Restaurar a configuração anterior ao reforço?','As opções modificadas pelo reforço voltarão aos valores salvos. Regras de outros aplicativos serão preservadas.');return firewall.restore();}),
-    'firewall:block':payload=>mutate(async()=>{const {validatePort}=require('./validation.cjs');const port=validatePort(payload?.port);await confirm('Bloquear porta','Bloquear novas conexões TCP de entrada na porta '+port+'?','A regra será identificada como Aegis e poderá ser removida pelo aplicativo.');return firewall.blockPort(port);}),
+    'firewall:block':payload=>mutate(async()=>{const {validatePort}=require('./validation.cjs');const port=validatePort(payload?.port);await confirm('Bloquear porta',tx('Bloquear novas conexões TCP de entrada na porta {port}?',{port}),'A regra será identificada como Aegis e poderá ser removida pelo aplicativo.');return firewall.blockPort(port);}),
     'firewall:remove':payload=>mutate(async()=>{await confirm('Remover regra','Remover esta regra de bloqueio do Aegis?','Conexões antes bloqueadas por esta regra poderão ser permitidas por outras políticas.');return firewall.removeRule(payload?.id);}),
     'vpn:status':()=>privacy.vpnStatus(),
-    'vpn:import':async()=>{const result=await dialog.showOpenDialog(win,{title:'Importar perfil WireGuard',properties:['openFile','dontAddToRecent'],filters:[{name:'WireGuard',extensions:['conf']}]});if(result.canceled)return null;return privacy.importProfile(result.filePaths[0]);},
+    'vpn:import':async()=>{const result=await dialog.showOpenDialog(win,{title:tx("Importar perfil WireGuard"),properties:['openFile','dontAddToRecent'],filters:[{name:'WireGuard',extensions:['conf']}]});if(result.canceled)return null;return privacy.importProfile(result.filePaths[0]);},
     'vpn:connect':payload=>mutate(async()=>{await confirm('Conectar VPN','Ativar este perfil WireGuard?','O perfil pode alterar rotas e servidores DNS. Use somente configurações de um servidor em que você confia. Uma interface ativa, por si só, não confirma ausência de vazamentos. O túnel permanece ativo ao fechar o Aegis; desconecte-o aqui antes de sair se necessário.');return privacy.connect(payload?.id);}),
     'vpn:disconnect':()=>mutate(async()=>{await confirm('Desconectar VPN','Desconectar o túnel gerenciado pelo Aegis?','As conexões voltarão a seguir as rotas do sistema.');return privacy.disconnect();}),
     'vpn:remove':async payload=>{await confirm('Remover perfil','Remover este perfil VPN do cofre local?','A configuração importada originalmente não será alterada.');return privacy.removeProfile(payload?.id);},
@@ -96,7 +97,7 @@ app.whenReady().then(async()=>{
     'tor:start':()=>privacy.startTor(),
     'tor:stop':()=>privacy.stopTor(),
     history:async()=>({events:store.state.history,audits:store.state.audits,scans:store.state.scans}),
-    settings:async payload=>{if(!payload||Object.keys(payload).some(k=>!['reducedMotion','liveNetwork'].includes(k))||Object.values(payload).some(v=>typeof v!=='boolean'))throw new Error('Configuração inválida.');Object.assign(store.state.settings,payload);store.save();return store.state.settings;},
+    settings:async payload=>{validateSettings(payload);Object.assign(store.state.settings,payload);store.save();return store.state.settings;},
     export:exportReport,
     external:async payload=>{const url=external[payload?.id];if(!url)throw new Error('Destino inválido.');await shell.openExternal(url);return true;},
   };
@@ -116,7 +117,7 @@ app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});
 app.on('before-quit',event=>{
   if(av?.child&&!app._confirmedQuit){
     event.preventDefault();
-    dialog.showMessageBox(win,{type:'question',message:'Há uma tarefa do antivírus em andamento.',detail:'Sair interrompe a tarefa. O resultado não será considerado uma varredura concluída.',buttons:['Continuar no Aegis','Interromper e sair'],defaultId:0,cancelId:0}).then(({response})=>{if(response===1){app._confirmedQuit=true;av.cancel();privacy?.stopTor();setTimeout(()=>app.quit(),700);}});return;
+    dialog.showMessageBox(win,{type:'question',message:tx("Há uma tarefa do antivírus em andamento."),detail:tx("Sair interrompe a tarefa. O resultado não será considerado uma varredura concluída."),buttons:[tx("Continuar no Aegis"),tx("Interromper e sair")],defaultId:0,cancelId:0}).then(({response})=>{if(response===1){app._confirmedQuit=true;av.cancel();privacy?.stopTor();setTimeout(()=>app.quit(),700);}});return;
   }
   privacy?.stopTor();
 });

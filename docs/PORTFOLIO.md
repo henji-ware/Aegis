@@ -1,40 +1,35 @@
-# Como apresentar o Aegis
+# Presenting Aegis in a portfolio
 
-O Aegis é um projeto pessoal. Apresente-o como experiência de desenvolvimento
-e estudo de segurança, com os limites da versão visíveis.
+Aegis is a personal software and security project. Present its implemented
+behavior, evidence and limits accurately. If AI assisted its development,
+describe that contribution and demonstrate your own ability to explain,
+reproduce, test and maintain the code.
 
-## Demonstração em 3 minutos
+## Three-minute demonstration
 
-1. Mostre o painel 3D e navegue até Diagnóstico.
-2. Execute uma auditoria e explique um resultado não verificado: falta de
-   evidência não significa segurança.
-3. Mostre o ClamAV independente, a atualização de assinaturas e uma varredura
-   personalizada em uma pasta de teste sem informações pessoais.
-4. Abra o histórico e exporte o relatório.
-5. Explique a separação entre interface isolada e comandos administrativos,
-   a validação de perfis WireGuard e o alcance do proxy Tor.
+1. Show the green dashboard, interactive 3D scene and language switcher.
+2. Run Diagnostics and explain an unknown finding: absence of evidence is not
+   evidence of protection.
+3. Prepare ClamAV definitions and scan a harmless test folder.
+4. Review the activity history and export a local report.
+5. Explain renderer isolation, validated IPC, WireGuard profile restrictions,
+   the OS key store and the limited scope of a Tor proxy.
 
-Não altere o firewall de uma máquina de produção para uma demonstração.
-Use uma VM com snapshot para testar bloqueios, restauração e VPN.
+Use a disposable VM with a snapshot for firewall and VPN demonstrations.
+Do not change a production firewall for a portfolio presentation.
 
-## Texto de currículo — use apenas após compreender e reproduzir
+## Resume example — use after understanding and reproducing the project
 
-Desenvolvi o Aegis, central desktop de segurança em Electron, React e Three.js,
-com integração ao ClamAV, diagnóstico local, controle de firewall, gerenciamento
-de perfis WireGuard e proxy Tor. Implementei isolamento da interface, validação
-de operações nativas, proteção de chaves com o cofre do sistema, relatórios e
-histórico de auditorias.
+Developed an Electron, React and Three.js desktop security application with
+ClamAV integration, local configuration diagnostics, native firewall controls,
+WireGuard profile management, a local Tor proxy and a multilingual interface.
+Implemented renderer isolation, validated native operations, OS-backed key
+storage, local reports, recovery behavior and cross-platform CI.
 
-Se o projeto foi feito com assistência de IA, seja transparente sobre isso.
-Demonstre que consegue explicar, testar e manter o código.
+## Further work
 
-## Melhorias que demonstram evolução
-
-- Exercitar aplicação e rollback em VMs, incluindo falhas intermediárias.
-- Testar binários nativos no macOS e Linux, com cobertura por plataforma.
-- Testar rotas, handshake, IPv6 e DNS antes de oferecer um kill switch.
-- Evoluir o antivírus com clamd e fila de tarefas, mantendo o estado real.
-- Criar testes de integração para elevação sem usar o host do desenvolvedor.
-- Publicar releases reproduzíveis com fontes/licenças dos componentes.
-- Revisar acessibilidade com teclado e leitor de tela.
-
+- Exercise administrative changes and rollback in Windows, macOS and Linux VMs.
+- Validate real VPN handshake, routing, DNS and IPv6 before adding leak claims.
+- Extend on-demand antivirus scheduling and engine isolation.
+- Verify keyboard, RTL and screen-reader behavior with native speakers.
+- Establish signed release provenance and independent security review.

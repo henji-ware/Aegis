@@ -1,12 +1,12 @@
 {
   "name": "aegis-desktop",
   "productName": "Aegis",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "main": "electron/main.cjs",
   "author": "Aegis contributors",
   "license": "MIT",
-  "description": "Central local de segurança e privacidade",
+  "description": "Local desktop security and privacy application",
   "scripts": {
     "dev": "node scripts/dev.cjs",
     "build": "tsc --noEmit && vite build",
@@ -19,7 +19,8 @@
     "test:effects": "node scripts/test-ui-effects.cjs",
     "test:dpapi": "node scripts/test-dpapi.cjs",
     "check:runtimes": "node scripts/check-runtimes.cjs",
-    "test:guard": "node scripts/test-windows-guard.cjs"
+    "test:guard": "node scripts/test-windows-guard.cjs",
+    "test:locales": "node scripts/test-ui-locales.cjs"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",

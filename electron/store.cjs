@@ -1,12 +1,14 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 const{randomUUID}=require('node:crypto');
-function defaults(){return{version:1,settings:{reducedMotion:false,liveNetwork:false},history:[],audits:[],scans:[],rules:[],firewallBackup:null,profiles:[],quarantine:[],activeVpn:null,activeScan:null};}
+const {validateSettings}=require('./localization.cjs');
+function defaults(){return{version:1,settings:{reducedMotion:false,liveNetwork:false,language:'system'},history:[],audits:[],scans:[],rules:[],firewallBackup:null,profiles:[],quarantine:[],activeVpn:null,activeScan:null};}
 function parseState(text){
  const value=JSON.parse(text.replace(/^\uFEFF/,''));
  if(!value||value.version!==1)throw new Error('Versão desconhecida do armazenamento local.');
  for(const key of ['history','audits','scans','rules','profiles'])if(!Array.isArray(value[key]))throw new Error('Coleção local inválida: '+key);
  if(!value.settings||typeof value.settings.reducedMotion!=='boolean'||typeof value.settings.liveNetwork!=='boolean')throw new Error('Preferências locais inválidas.');
+ value.settings.language??='system';validateSettings(value.settings);
  return{...defaults(),...value};
 }
 class Store{

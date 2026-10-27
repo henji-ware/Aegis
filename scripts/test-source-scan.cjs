@@ -4,7 +4,7 @@ const{_electron}=require(process.env.AEGIS_PLAYWRIGHT_MODULE||'playwright');
  const root=path.resolve(__dirname,'..'),release=process.env.AEGIS_PACKAGE_DIR||path.join(root,'release','Aegis-win32-x64'),data=path.join(root,'.aegis-test','source-scan-020'),fixture=path.join(root,'.aegis-test','benign-folder');
  fs.mkdirSync(path.join(data,'signatures'),{recursive:true});fs.mkdirSync(fixture,{recursive:true});fs.writeFileSync(path.join(fixture,'readme.txt'),'Aegis: harmless local test file. No threat or executable content.');
  for(const name of fs.readdirSync(path.join(root,'.aegis-test','engine','signatures')))if(/\.(cvd|cld|sign)$/.test(name))fs.copyFileSync(path.join(root,'.aegis-test','engine','signatures',name),path.join(data,'signatures',name));
- const env={...process.env,AEGIS_DATA_DIR:data};delete env.ELECTRON_RUN_AS_NODE;
+ const env={...process.env,AEGIS_DATA_DIR:data};delete env.ELECTRON_RUN_AS_NODE;const localeStore=new (require('../electron/store.cjs').Store)(env.AEGIS_DATA_DIR);localeStore.state.settings.language='pt-BR';localeStore.save();
  const app=await _electron.launch({executablePath:require('electron'),args:[...(process.env.AEGIS_TEST_NO_SANDBOX==='1'?['--no-sandbox','--disable-gpu']:[]),root],env,timeout:45000});
  try{
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));

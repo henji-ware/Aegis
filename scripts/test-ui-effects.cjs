@@ -1,6 +1,6 @@
 const{_electron}=require(process.env.AEGIS_PLAYWRIGHT_MODULE||'playwright'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
- const root=path.resolve(__dirname,'..'),env={...process.env,AEGIS_DATA_DIR:path.join(root,'.aegis-test','effects')};delete env.ELECTRON_RUN_AS_NODE;
+ const root=path.resolve(__dirname,'..'),env={...process.env,AEGIS_DATA_DIR:path.join(root,'.aegis-test','effects')};delete env.ELECTRON_RUN_AS_NODE;const localeStore=new (require('../electron/store.cjs').Store)(env.AEGIS_DATA_DIR);localeStore.state.settings.language='pt-BR';localeStore.save();
  const app=await _electron.launch({executablePath:require('electron'),args:[...(process.env.AEGIS_TEST_NO_SANDBOX==='1'?['--no-sandbox','--disable-gpu']:[]),root],env,timeout:45000});
  try{
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));

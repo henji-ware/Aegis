@@ -1,5 +1,5 @@
 export type Page='overview'|'audit'|'antivirus'|'network'|'firewall'|'privacy'|'history'|'settings';
-export interface Settings{reducedMotion:boolean;liveNetwork:boolean}
+export interface Settings{reducedMotion:boolean;liveNetwork:boolean;language?:string}
 export interface SystemInfo{platform:string;release:string;architecture:string;hostname:string;os:string;memory:number;cpus:number;interfaces:{name:string;address:string;family:string}[]}
 export interface Connection{id:string;protocol:string;localAddress:string;localPort:number;remoteAddress:string;remotePort:number;state:string;pid:number;process:string}
 export interface Check{id:string;title:string;status:'pass'|'warning'|'review'|'unknown';evidence:string;recommendation:string;action?:Page}

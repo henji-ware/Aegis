@@ -1,4 +1,4 @@
-AEGIS — LICENÇAS DAS DEPENDÊNCIAS DA INTERFACE
+AEGIS — UI DEPENDENCY LICENSES
 
 
 ========================================================================
