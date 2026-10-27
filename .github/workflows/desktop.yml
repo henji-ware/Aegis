@@ -53,6 +53,10 @@ jobs:
       - run: npm run package -- --verbose --bundles ${{ matrix.bundles }}
       - run: node scripts/check-installers.cjs
       - if: runner.os == 'Windows'
+        name: Prepare WebView2 runtime for native UI validation
+        shell: pwsh
+        run: ./scripts/ensure-webview-ci.ps1
+      - if: runner.os == 'Windows'
         run: node scripts/test-native-windows.cjs
       - if: runner.os == 'Linux'
         name: Validate Debian 13 installation dependencies

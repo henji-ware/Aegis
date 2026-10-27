@@ -102,6 +102,49 @@ pub fn escape(value: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&#39;")
 }
+fn recommendation(check: &Value) -> String {
+    static MESSAGES: OnceLock<Value> = OnceLock::new();
+    let messages = MESSAGES.get_or_init(|| {
+        serde_json::from_str(include_str!("../../locales/check-messages.json")).unwrap()
+    });
+    messages[check["id"].as_str().unwrap_or("")]
+        .as_str()
+        .unwrap_or("Confira a segurança do dispositivo nas configurações do sistema.")
+        .to_string()
+}
+fn event_title(event: &Value) -> String {
+    let title = event["title"].as_str().unwrap_or("");
+    if title.starts_with("Varredura ") {
+        return "Varredura concluída".into();
+    }
+    if title.starts_with("Porta TCP ") {
+        return "Porta TCP bloqueada".into();
+    }
+    let known = [
+        "Diagnóstico concluído",
+        "Atualização de assinaturas",
+        "Reforço do firewall aplicado",
+        "Configuração do firewall restaurada",
+        "Regra removida",
+        "Perfil VPN importado",
+        "Ativação VPN solicitada",
+        "Túnel VPN removido",
+        "Conexão Tor iniciada",
+        "Relatório exportado",
+    ];
+    if known.contains(&title) {
+        return title.into();
+    }
+    match event["type"].as_str() {
+        Some("audit") => "Diagnóstico",
+        Some("antivirus") => "Antivírus",
+        Some("firewall") => "Firewall",
+        Some("vpn") => "WireGuard VPN",
+        Some("tor") => "Rede Tor",
+        _ => "Atividade",
+    }
+    .into()
+}
 pub fn report(core: &Core) -> Result<String> {
     let data = core.store.lock().map_err(|_| "state-lock")?.data.clone();
     let language = data["settings"]["language"].as_str().unwrap_or("system");
@@ -116,7 +159,7 @@ pub fn report(core: &Core) -> Result<String> {
                 Some("review") => "Revisar",
                 _ => "Não verificado",
             };
-            html+=&format!("<article><h3>{}</h3><p>{}</p><p>{}</p><details><summary>{}</summary><pre>{}</pre></details></article>",t(c["title"].as_str().unwrap_or("")),t(status),t(c["recommendation"].as_str().unwrap_or("")),t("Detalhes originais"),escape(c["evidence"].as_str().unwrap_or("")));
+            html+=&format!("<article><h3>{}</h3><p>{}</p><p>{}</p><details><summary>{}</summary><pre>{}</pre></details></article>",t(c["title"].as_str().unwrap_or("")),t(status),t(&recommendation(c)),t("Detalhes originais"),escape(c["evidence"].as_str().unwrap_or("")));
         }
     }
     html += &format!("<h2>{}</h2>", t("Antivírus"));
@@ -131,8 +174,8 @@ pub fn report(core: &Core) -> Result<String> {
     for event in data["history"].as_array().unwrap().iter().take(50) {
         html += &format!(
             "<article><h3>{}</h3><pre>{}</pre></article>",
-            t(event["title"].as_str().unwrap_or("Atividade")),
-            escape(&event["detail"].to_string())
+            t(&event_title(event)),
+            escape(&serde_json::to_string_pretty(event).unwrap_or_default())
         );
     }
     html += "</html>";

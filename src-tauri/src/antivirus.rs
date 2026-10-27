@@ -391,6 +391,7 @@ fn start_inner(
             if job["state"] == "error" {
                 job["error"] = json!("scan-incomplete");
             }
+            job.as_object_mut().unwrap().remove("persistenceError");
             if let Ok(mut store) = state.store.lock() {
                 store.data["activeScan"] = Value::Null;
                 let saved = store.push("scans", job.clone(), 50).and_then(|_| {

@@ -6,7 +6,7 @@ import type {Connection} from './types';
 export function Orb({connections,reducedMotion,onSelect}:{connections:Connection[];reducedMotion:boolean;onSelect?:(process:string)=>void}){
  const host=useRef<HTMLDivElement>(null),selectRef=useRef(onSelect),[fallback,setFallback]=useState(false);
  const {locale}=useI18n();selectRef.current=onSelect;
- const processes=useMemo(()=>Array.from(new Set(connections.map(c=>c.process||'System'))).sort().slice(0,24),[connections]);
+ const processes=useMemo(()=>Array.from(new Set(connections.map(c=>c.process).filter(Boolean))).sort().slice(0,24),[connections]);
  const signature=processes.join('\u0000');
  useEffect(()=>{
   const element=host.current;if(!element)return;

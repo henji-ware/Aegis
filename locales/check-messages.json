@@ -1,0 +1,12 @@
+{
+  "firewall": "Revise a proteção de entrada e aplique regras reversíveis.",
+  "app-control": "Confira o controle de aplicativos e os eventos CodeIntegrity na Segurança do Windows.",
+  "vbs": "Confira a segurança do dispositivo nas configurações do sistema.",
+  "memory-integrity": "Revise a integridade da memória e a compatibilidade dos drivers.",
+  "antivirus": "Prepare o mecanismo e atualize as assinaturas na área Antivírus.",
+  "signatures": "Atualize as assinaturas com FreshClam; o horário local não confirma a versão da base.",
+  "listeners": "Confirme se os serviços em escuta são necessários e revise o firewall.",
+  "admins": "Mantenha privilégios administrativos apenas nas contas que precisam deles.",
+  "encryption": "Confira a criptografia do disco e guarde a chave de recuperação em um local seguro.",
+  "updates": "Confira o Windows Update; a data de um hotfix não confirma todas as atualizações."
+}
