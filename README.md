@@ -2,159 +2,69 @@
 
 [![Desktop checks](https://github.com/henji-ware/Aegis/actions/workflows/desktop.yml/badge.svg)](https://github.com/henji-ware/Aegis/actions/workflows/desktop.yml)
 
-A free, open-source desktop application for local security checks, on-demand
-antivirus scans, firewall controls, WireGuard profiles and a local Tor proxy.
-Built with Electron, React, TypeScript and Three.js.
+Free and open-source desktop security tools, built with **Tauri 2, Rust, React, TypeScript and Three.js**. Local configuration checks, on-demand ClamAV scanning, native firewall controls, WireGuard profiles and a local Tor proxy.
 
-![Aegis interface](docs/interface.png)
+![Aegis interface — illustrative test data](docs/interface.png)
 
-## Version 0.3.0
+## Download
 
-- Dark green interface with clearer surfaces, spacing and keyboard focus.
-- Layered 3D shield, faceted center, orbital arcs, subtle lighting and pointer parallax.
-- Ten interface languages, instant switching, saved preference and system detection.
-- Right-to-left layout for Arabic and localized date formatting.
-- Localized native confirmation dialogs and HTML report headings.
-- Original operating-system evidence, filenames and engine logs remain unchanged.
-- Lazy-loaded 3D scene, capped rendering, hidden-page pause and reduced-motion mode.
+Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Version 0.4.0 is a development preview. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
 
-## Languages
+| Platform | Packages | Architecture |
+|---|---|---|
+| Windows | NSIS `.exe`, `.msi` | x64 |
+| Linux | `.deb`, `.rpm`, `.AppImage` | x64 |
+| macOS | `.dmg` | Apple silicon |
 
-Portuguese, English, Spanish, French, German, Russian, Simplified Chinese,
-Japanese, Arabic and Hindi. Choose a language in the header or in Settings.
-
-Translations are included in the application. Changing language requires no
-translation service, account, internet connection or subscription. Unsupported
-system languages fall back to English. Portuguese is the source language for
-message identifiers; other catalogs are in `locales/`. Technical output and
-previously recorded system evidence retain their original language.
+The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. Package dependencies and CI results are documented with each release.
 
 ## Features
 
 | Module | Behavior |
 |---|---|
-| Diagnostics | Read-only observations with explicit passed, attention, review and unknown states. Windows checks include Smart App Control, VBS and memory integrity. |
-| Antivirus | Bundled ClamAV and FreshClam, official definition updates, quick/full/custom scans, cancellation and retained detections. Works independently of Windows Defender. |
-| Connections | TCP sockets and processes, search, filters, optional refresh and an abstract 3D view. |
-| Firewall | Native firewall hardening, saved previous settings, restoration and owned inbound TCP block rules where supported. |
-| WireGuard | Validated profiles, OS-protected private keys and explicit connection controls. |
-| Tor | Bundled client, startup progress and a private SOCKS5 listener on loopback. |
-| Activity | Local history, diagnostic comparisons and HTML export. |
+| Diagnostics | Read-only checks with passed, attention, review and unknown states. Windows checks include Smart App Control, VBS and memory integrity. |
+| Antivirus | Independent ClamAV/FreshClam, quick/full/custom scans, cancellation, retained detections and explicit partial results. No Windows Defender dependency. |
+| Connections | TCP sockets, process names, local executable inspection and review signals. A selected executable can be scanned with ClamAV. |
+| Firewall | Confirmed native hardening, saved prior settings, restoration and owned inbound TCP block rules on Windows/UFW. |
+| WireGuard | Strict profile validation, private keys in the OS credential vault, explicit activation and recoverable tunnel state. No VPN server is supplied. |
+| Tor | Bundled Tor client with a loopback-only SOCKS proxy. Applications must opt in to the proxy; it does not route all device traffic. |
+| Activity | Local history, comparisons and escaped HTML reports. |
 
-There are no ads, paid tiers, subscription features or telemetry in Aegis.
-Aegis source is MIT licensed. Third-party components keep their own licenses;
-OS runtime libraries may be distributed under their vendor's terms.
+Connection analysis uses local evidence. A listening port or a temporary executable location is a reason to review, not proof of malware. No external IP reputation service receives your connections. No automatic process termination, file deletion, quarantine or real-time antivirus protection is implemented. ClamAV definitions must be downloaded before normal scans; a completed scan is not a guarantee that a file is safe.
 
-## Using a Windows build
+## Interface and languages
 
-1. Extract the entire distribution folder.
-2. Open `Aegis.exe` on a system whose application-control policy permits it.
-3. In Antivirus, prepare definitions before the first scan. FreshClam downloads
-   and verifies the official database; the initial download can be large.
-4. Select a scan target and review its results and any read errors.
-5. Run Diagnostics to review configuration evidence and recommendations.
+Dark green surfaces, a point-cloud constellation, local process selection and pointer parallax. Decorative stars and lines are abstract; they do not represent geography, measured traffic or detected attacks. Continuous movement stops with reduced motion and pauses while hidden.
 
-**Windows builds are currently unsigned.** Smart App Control blocked a previous
-build on the development computer. Version 0.3.0 does not remove that trust
-restriction. See [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md).
-No Windows protections are disabled and no trust certificates are installed.
+Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are immediate and saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
 
-The antivirus is on demand: there is no real-time protection, automatic deletion,
-cloud file submission or guarantee of detecting every threat. RAR contents are
-not inspected. Scans respect session permissions and file/extraction size limits;
-protected, encrypted or oversized files can produce partial results.
+## Architecture
 
-## Privacy connections
+`src/` contains React/TypeScript and Three.js. `src-tauri/src/` contains the native Rust implementation. The distributed app has **no Electron or Node.js runtime**. Node.js is used only by frontend/build tooling.
 
-WireGuard requires a profile and a server you operate or choose. No VPN account
-or server is bundled, and no provider is mandatory. An active interface alone
-does not establish a successful handshake, full routing or leak protection.
-This version has no kill switch. A managed WireGuard tunnel can remain active
-after Aegis closes; disconnect it explicitly when needed.
+The system WebView renders the interface. Rust accepts a fixed set of validated commands from the local main window. No arbitrary shell, filesystem, remote URL or remote WebView capability is granted to the frontend. Administrative firewall/VPN actions require native confirmation and OS authorization. External engines run as child processes with fixed argument arrays.
 
-Tor supplies a local proxy. Applications must be configured to use it and resolve
-names through Tor. This does not route every application automatically. Use the
-official Tor Browser for its browser-specific protections. Aegis stops its Tor
-client when it closes.
+Windows WebView2, macOS WKWebView and Linux WebKitGTK are platform dependencies. Their licensing and distribution terms remain applicable. Aegis has no ads, payments, premium tiers, telemetry or mandatory account. Aegis source is MIT licensed; component licenses are preserved separately.
 
-## Platform coverage
+## Build
 
-The previous CI completed on Windows x64, Linux x64 and macOS ARM64, including
-native engine checks and packaging. Current results are visible in
-[GitHub Actions](https://github.com/henji-ware/Aegis/actions).
-Those checks do not constitute complete desktop or administrative-operation
-validation on every operating system.
-
-| Platform | Firewall | VPN prerequisites |
-|---|---|---|
-| Windows | Native profiles and owned TCP rules | Bundled WireGuard client; elevation when activating a service |
-| macOS | Application firewall and stealth mode | External `wireguard-tools`; secure keychain |
-| Linux | UFW and owned rules | UFW, iproute2, PolicyKit, `wireguard-tools` and a secure Secret Service/KWallet backend |
-
-The Linux `basic_text` key-storage fallback is refused. External LuLu and
-Portmaster project links are optional integrations, not bundled services.
-
-## Development
-
-Requirements: Node.js 22.12 or newer, npm and platform extraction tools.
+Install Node.js 22+, the Rust stable toolchain and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/). Windows builds need Visual Studio C++ Build Tools and WebView2; Linux builds need WebKitGTK 4.1 development packages and D-Bus libraries.
 
 ```sh
 npm ci
-node node_modules/electron/install.js
+npm run check
 npm run prepare:runtimes
-npm run dev
-```
-
-Runtime downloads come from official projects and must match pinned SHA-256
-hashes in `runtimes.json`. The Windows preparer extracts the WireGuard MSI as a
-container and installs no service. macOS requires `pkgutil`; Linux requires
-`dpkg-deb`. Third-party sources and licenses must accompany redistribution
-according to their licenses.
-
-```sh
-npm test
-npm run build
-npm run test:locales
+node scripts/stage-runtimes.cjs
+npm run test:rust
 npm run package
 ```
 
-The UI integration test requires a working Electron environment. In the restricted
-development AppContainer only, `AEGIS_TEST_NO_SANDBOX=1` is used by test scripts;
-distributed applications retain renderer sandboxing. The default build never
-adds that test argument. `AEGIS_DATA_DIR` selects isolated development storage.
+`npm run dev` runs Tauri development mode. `npm run dev:web` previews only the frontend; native features require the desktop application. Installers are written under `src-tauri/target/release/bundle/`. Runtime downloads are pinned and checked against `runtimes.json`. Packaging excludes the restricted UnRAR modules.
 
-Packages are written to `release/`. CI also executes the engines from the final
-package and checks that runtime symlinks do not escape its resource directory.
-`AEGIS_ELECTRON_ZIP_DIR` can point to a cached official Electron ZIP.
+## Validation and migration
 
-## Architecture and security boundaries
+See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
 
-```text
-React / Three.js — sandboxed renderer, no Node integration
-        │ validated IPC methods and sender
-Electron main process / platform adapters
-        ├── ClamAV / FreshClam
-        ├── Native firewall
-        ├── WireGuard
-        ├── Tor — local SOCKS proxy
-        └── Local storage / OS key store
-```
+Electron data is preserved when migrating. Compatible settings, history and firewall recovery information are copied to the Tauri store. VPN profiles need to be reimported into the new OS credential vault. An existing owned tunnel is retained for explicit recovery/disconnection when its configuration can be copied. Disconnect VPNs using the previous version before switching whenever possible. Invalid local data is preserved and recovered from its last valid backup instead of silently discarded.
 
-The renderer uses context isolation and a fixed preload API. Native operations
-use fixed executables and validated arguments; there is no generic shell IPC.
-WireGuard executable hooks are rejected. Administrative changes require native
-review and the OS elevation flow. The interface itself does not run elevated.
-
-State has schema validation, atomic writes and recovery from a validated backup.
-Never commit VPN profiles, private keys, state files, engine databases or real
-reports. The default repository excludes those files and downloaded runtimes.
-
-See [security notes](docs/SECURITY.md), [validation](docs/VALIDATION.md),
-[Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and
-[portfolio notes](docs/PORTFOLIO.md). Documentation and commit messages are in English.
-
-## License
-
-Original Aegis code: [MIT](LICENSE). Component notices:
-[THIRD-PARTY-NOTICES](docs/THIRD-PARTY-NOTICES.txt) and
-[UI-LICENSES](docs/UI-LICENSES.txt).
+See [third-party notices](docs/THIRD-PARTY-NOTICES.txt) and [LICENSE](LICENSE). Corresponding engine source archives accompany releases. Build provenance can be verified using `gh attestation verify <installer> --repo henji-ware/Aegis`; verify SHA-256 values using the release checksum file as well.

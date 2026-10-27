@@ -47,7 +47,8 @@
     "resources": {
       "../.build/bundle-resources/": "engines/",
       "../docs/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
-      "../docs/UI-LICENSES.txt": "UI-LICENSES.txt"
+      "../docs/UI-LICENSES.txt": "UI-LICENSES.txt",
+      "../docs/RUST-LICENSES.txt": "RUST-LICENSES.txt"
     },
     "windows": {
       "wix": {
@@ -89,7 +90,8 @@
       }
     },
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
     }
   }
 }

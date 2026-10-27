@@ -1,0 +1,17 @@
+[
+  {
+    "name": "tor-0.4.9.14.tar.gz",
+    "url": "https://dist.torproject.org/tor-0.4.9.14.tar.gz",
+    "sha256": "182449ac1c8ff43278da27b69b02040e11d03d0327db6d9126e4190ec6235e4a"
+  },
+  {
+    "name": "wireguard-windows-1.1.1.zip",
+    "url": "https://codeload.github.com/WireGuard/wireguard-windows/zip/refs/tags/v1.1.1",
+    "sha256": "9db134eb823c64ecab16513fcb182d8be574978b1bbbffac4c00a5704887088b"
+  },
+  {
+    "name": "wireguard-tools-1.0.20260223.tar.xz",
+    "url": "https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-1.0.20260223.tar.xz",
+    "sha256": "af459827b80bfd31b83b08077f4b5843acb7d18ad9a33a2ef532d3090f291fbf"
+  }
+]

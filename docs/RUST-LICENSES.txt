@@ -1,0 +1,8 @@
+AEGIS — RUST DEPENDENCY LICENSES
+
+Installer builds replace this file with license notices generated from the
+pinned Cargo metadata and corresponding crate source files. Run:
+
+node scripts/rust-notices.cjs
+
+See src-tauri/Cargo.lock for exact crate versions and origins.

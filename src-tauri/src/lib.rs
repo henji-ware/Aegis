@@ -482,7 +482,14 @@ mod native_tests {
         let Some(dir) = std::env::var_os("AEGIS_NATIVE_TEST_RESOURCES") else {
             return;
         };
-        let resources = PathBuf::from(dir).canonicalize().unwrap();
+        let path = PathBuf::from(dir);
+        let resources = if path.is_absolute() {
+            path
+        } else {
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(path)
+        }
+        .canonicalize()
+        .unwrap();
         let temporary = tempfile::tempdir().unwrap();
         let core = Core::new(temporary.path().to_path_buf(), resources).unwrap();
         let scanner =
