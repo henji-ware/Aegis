@@ -1,12 +1,2 @@
-const fs=require('node:fs/promises');
-const{runtimeEnv}=require('../electron/runtime-env.cjs');
-const path=require('node:path');
-const{Antivirus}=require('../electron/antivirus.cjs'),{run,findTool}=require('../electron/runner.cjs');
-(async()=>{const resources=process.env.AEGIS_CHECK_RESOURCES||path.resolve(__dirname,'..','resources'),av=new Antivirus({store:{dir:path.resolve(__dirname,'..','.build','check')},resources,emit:()=>{}}),{scanner,updater}=await av.binaries();
-if(!scanner||!updater)throw new Error('ClamAV/FreshClam are unavailable.');
-console.log(await run(scanner,['--version'],{env:av.env()}));
-await fs.mkdir(av.store.dir,{recursive:true});const config=path.join(av.store.dir,'freshclam.conf');await fs.writeFile(config,'DatabaseDirectory "'+av.store.dir.replace(/\\/g,'/')+'"\nDatabaseMirror database.clamav.net\n');console.log(await run(updater,['--config-file='+config,'--version'],{env:av.env()}));
-const exe=process.platform==='win32'?'tor.exe':'tor',tor=await findTool('tor',[path.join(resources,'tor','tor',exe),path.join(resources,'tor',exe)]);
-if(!tor)throw new Error('Tor is unavailable.');console.log((await run(tor,['--version'],{env:runtimeEnv('tor',resources)})).split('\n')[0]);
-})().catch(e=>{console.error(e.message);process.exitCode=1;});
-
+const fs=require('node:fs/promises'),path=require('node:path'),{execFileSync}=require('node:child_process');
+(async()=>{const root=process.env.AEGIS_CHECK_RESOURCES||path.resolve(__dirname,'..','resources'),extension=process.platform==='win32'?'.exe':'';for(const [group,name]of [['clamav','clamscan'],['clamav','freshclam'],['tor','tor']]){const candidates=[path.join(root,group,name+extension),path.join(root,group,'bin',name+extension),path.join(root,group,'usr','local','bin',name+extension),path.join(root,group,group,name+extension)];let file;for(const candidate of candidates){try{if((await fs.stat(candidate)).isFile()){file=candidate;break;}}catch{}}if(!file)throw Error(name+' missing');const key=process.platform==='win32'?'PATH':process.platform==='darwin'?'DYLD_LIBRARY_PATH':'LD_LIBRARY_PATH',paths=[path.join(root,group),path.join(root,group,'tor'),path.join(root,group,'lib'),path.join(root,group,'lib64'),process.env[key]||''];const args=['--version'];if(name==='freshclam'){const folder=path.resolve(__dirname,'..','.build','check-runtimes');await fs.mkdir(folder,{recursive:true});const config=path.join(folder,'freshclam.conf');await fs.writeFile(config,'DatabaseDirectory "'+folder.replace(/\\/g,'/')+'"\nDatabaseMirror database.clamav.net\n');args.unshift('--config-file='+config);}const output=execFileSync(file,args,{encoding:'utf8',windowsHide:true,timeout:15000,env:{...process.env,[key]:paths.join(path.delimiter)}});console.log(output.split('\n')[0]);}})().catch(e=>{console.error(e.message);process.exitCode=1;});

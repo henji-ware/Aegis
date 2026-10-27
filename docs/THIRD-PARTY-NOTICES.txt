@@ -4,10 +4,13 @@ Original Aegis source code is MIT licensed; see LICENSE.
 Engines run as separate processes and retain their own licenses.
 Aegis has no payments, subscriptions, advertisements or premium features.
 
-Electron 45.0.0 — MIT
-https://github.com/electron/electron
-LICENSE and LICENSES.chromium.html accompany the executable. Chromium includes
-components under multiple licenses, preserved in that file.
+Tauri 2 and official plugins — MIT / Apache-2.0
+https://github.com/tauri-apps/tauri
+Rust dependency versions are pinned in src-tauri/Cargo.lock. Their license
+notices are generated from Cargo metadata and included with release artifacts.
+The distributed application contains no Electron or Node.js runtime.
+The interface uses Windows WebView2, macOS WKWebView or Linux WebKitGTK.
+Platform runtime licensing and redistribution terms remain applicable.
 
 React / React DOM 19.3.1 / Scheduler — MIT
 https://github.com/facebook/react

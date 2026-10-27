@@ -1,42 +1,13 @@
-# Windows application-control compatibility
+# Windows compatibility
 
-## Confirmed observation
+Aegis 0.4.0 uses Tauri 2, Rust and the system WebView2 runtime. Installer builds target Windows x64 with NSIS and WiX/MSI. The build machine needs Visual Studio C++ tools; end users do not need Rust or Node.js.
 
-A previous unsigned `Aegis.exe` was blocked on the development computer.
-Read-only CodeIntegrity investigation found:
+The distributed application currently has no trusted Authenticode publisher signature. Smart App Control, SmartScreen or another application-control policy may prevent execution. An installer extension or a self-signed certificate does not resolve publisher trust by itself. Do not disable device protections to run a preview.
 
-- Event 3077: a block under `VerifiedAndReputableDesktop`.
-- Correlated event 3089: `TotalSignatureCount = 0`.
-- Smart App Control registry state 1, indicating enforcement.
-- Authenticode status `NotSigned`.
+On the development device, earlier CodeIntegrity events 3077/3089 identified an unsigned Aegis executable blocked under VerifiedAndReputableDesktop, with Smart App Control enabled. This is evidence about that earlier executable/device state, not proof that every installation is organization-managed. The Rust migration does not automatically change those trust decisions.
 
-The policy name identifies Smart App Control. A generic Device Guard error alone
-does not prove the computer is managed by an organization. VBS, HVCI and
-application control are distinct features.
+Aegis reads Smart App Control registry state and Win32_DeviceGuard for VBS, running security services and user-mode code integrity. Unknown, unsupported or denied queries remain unknown. No Device Guard, Core Isolation, Smart App Control or code-integrity policy is changed by diagnostics.
 
-Current Windows distributions remain unsigned. The interface changes and
-multilingual diagnostics do not resolve a trust block before application startup.
-No security policy was disabled and no trust certificate was installed.
+The system credential vault protects VPN profiles. Owned Windows tunnel configurations are DPAPI-protected for WireGuard and use the required tunnel description. Firewall and tunnel activation require OS elevation after in-app confirmation. Existing native policy and application rules can affect the observed result.
 
-## Read-only diagnostics
-
-Aegis reads `VerifiedAndReputablePolicyState` and queries `Win32_DeviceGuard` for
-VBS, running security services and user-mode code-integrity enforcement.
-Denied or unavailable queries stay unknown. Configured VBS is distinguished from
-running VBS; evaluation is distinguished from enforcement.
-
-These queries request no elevation and change no policy. A positive observation
-does not certify a particular executable or guarantee it will be allowed.
-
-## Future distribution
-
-Releases need verifiable provenance, a controlled build process and compatibility
-testing under the intended policies. Trusted signing can help establish
-provenance but is not a guarantee of acceptance by every policy. Signing keys
-must never be placed in this repository.
-
-## References
-
-- [Microsoft: testing Smart App Control](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/test-your-app-with-smart-app-control)
-- [Microsoft: application-control troubleshooting](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/appcontrol-debugging-and-troubleshooting)
-- [Microsoft: VBS and memory integrity](https://learn.microsoft.com/en-us/windows/security/hardware-security/enable-virtualization-based-protection-of-code-integrity)
+Trusted Windows code signing requires an eligible publisher certificate/service or a separately reviewed distribution route. GitHub artifact attestations are useful supply-chain evidence but are not Authenticode signatures and do not remove application-control warnings.

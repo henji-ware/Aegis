@@ -1,0 +1,97 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Aegis",
+  "version": "0.4.0",
+  "identifier": "org.aegis.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev:web",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build && node scripts/rust-notices.cjs",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Aegis",
+        "width": 1440,
+        "height": 960,
+        "minWidth": 1080,
+        "minHeight": 760,
+        "backgroundColor": "#07100d",
+        "devtools": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-src 'none'",
+      "capabilities": [
+        "main"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Local security diagnostics, ClamAV, firewall, WireGuard and Tor",
+    "longDescription": "Free and open-source desktop security dashboard. On-demand ClamAV scans, read-only system checks, reversible firewall rules and optional privacy connections.",
+    "publisher": "Aegis contributors",
+    "homepage": "https://github.com/henji-ware/Aegis",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
+    "icon": [
+      "../assets/icon.png",
+      "../assets/icon.ico",
+      "../assets/icon.icns"
+    ],
+    "resources": {
+      "../.build/bundle-resources/": "engines/",
+      "../docs/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "../docs/UI-LICENSES.txt": "UI-LICENSES.txt",
+      "../docs/RUST-LICENSES.txt": "RUST-LICENSES.txt"
+    },
+    "windows": {
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": true,
+        "languages": [
+          "English",
+          "PortugueseBR",
+          "Spanish",
+          "French",
+          "German",
+          "Russian",
+          "SimpChinese",
+          "Japanese",
+          "Arabic",
+          "Hindi"
+        ]
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0t64 | libgtk-3-0",
+          "iproute2",
+          "pkexec"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "iproute",
+          "polkit"
+        ]
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
+    }
+  }
+}

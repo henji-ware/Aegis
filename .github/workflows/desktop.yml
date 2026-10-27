@@ -1,33 +1,102 @@
 name: Desktop checks
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   desktop:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            bundles: nsis,msi
+          - os: ubuntu-24.04
+            bundles: deb,appimage,rpm
+          - os: macos-latest
+            bundles: app,dmg
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_BUILD_JOBS: '2'
+      NO_STRIP: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf rpm libfuse2
       - run: npm ci
-      - run: node node_modules/electron/install.js
-      - run: npm test
-      - run: npm run build
+      - run: npm run check
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: npm run prepare:runtimes
+      - run: node scripts/stage-runtimes.cjs
       - run: node scripts/check-runtimes.cjs
-      - run: npm run package
-      - run: node scripts/check-package-runtimes.cjs
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+        env:
+          AEGIS_NATIVE_TEST_RESOURCES: .build/bundle-resources
+      - run: node scripts/rust-notices.cjs
+      - run: npm run package -- --verbose --bundles ${{ matrix.bundles }}
+      - run: node scripts/check-installers.cjs
+      - if: runner.os == 'Windows'
+        name: Prepare WebView2 runtime for native UI validation
+        shell: pwsh
+        run: ./scripts/ensure-webview-ci.ps1
+      - if: runner.os == 'Windows'
+        run: node scripts/test-native-windows.cjs
+      - if: runner.os == 'Linux'
+        name: Validate Debian 13 installation dependencies
+        shell: bash
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE/src-tauri/target/release/bundle/deb:/packages:ro" debian:trixie-slim sh -c 'apt-get update -qq && apt-get install -y --no-install-recommends /packages/*.deb && dpkg-deb -f /packages/*.deb Package Version Architecture'
       - uses: actions/upload-artifact@v4
         with:
           name: aegis-${{ runner.os }}-${{ runner.arch }}
-          path: release/
-
+          path: |
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.dmg
+          if-no-files-found: error
+  publish:
+    needs: desktop
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: aegis-*
+          path: artifacts
+      - run: node scripts/collect-release.cjs
+      - uses: actions/attest@v4
+        with:
+          subject-path: release-assets/*
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Aegis $VERSION preview" --prerelease --draft --notes-file docs/RELEASE-NOTES.md
+          gh release upload "v$VERSION" release-assets/*
+          gh release edit "v$VERSION" --draft=false --prerelease

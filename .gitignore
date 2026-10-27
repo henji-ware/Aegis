@@ -15,3 +15,8 @@ resources/
 *.p12
 *.pem
 state.json*
+
+src-tauri/target/
+src-tauri/gen/
+release-assets/
+artifacts/
