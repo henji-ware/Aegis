@@ -13,7 +13,13 @@ fn list(value: Value) -> Vec<Value> {
 pub fn system() -> Value {
     let mut info = sysinfo::System::new();
     info.refresh_memory();
-    json!({"platform":platform(),"release":sysinfo::System::kernel_version().unwrap_or_default(),"architecture":std::env::consts::ARCH,"hostname":sysinfo::System::host_name().unwrap_or_default(),"os":if cfg!(windows){"Windows"}else if cfg!(target_os="macos"){"macOS"}else{"Linux"},"memory":info.total_memory(),"cpus":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"interfaces":get_if_addrs::get_if_addrs().unwrap_or_default().into_iter().filter(|i|!i.is_loopback()).map(|i|json!({"name":i.name,"address":i.addr.ip().to_string(),"family":if i.addr.ip().is_ipv4(){"IPv4"}else{"IPv6"}})).collect::<Vec<_>>()})
+    let networks = sysinfo::Networks::new_with_refreshed_list();
+    let interfaces = networks.iter().flat_map(|(name, data)| {
+        data.ip_networks().iter().filter(|ip| !ip.addr.is_loopback()).map(move |ip| {
+            json!({"name":name,"address":ip.addr.to_string(),"family":if ip.addr.is_ipv4(){"IPv4"}else{"IPv6"}})
+        })
+    }).collect::<Vec<_>>();
+    json!({"platform":platform(),"release":sysinfo::System::kernel_version().unwrap_or_default(),"architecture":std::env::consts::ARCH,"hostname":sysinfo::System::host_name().unwrap_or_default(),"os":if cfg!(windows){"Windows"}else if cfg!(target_os="macos"){"macOS"}else{"Linux"},"memory":info.total_memory(),"cpus":std::thread::available_parallelism().map(|n|n.get()).unwrap_or(1),"interfaces":interfaces})
 }
 pub fn platform() -> &'static str {
     if cfg!(windows) {

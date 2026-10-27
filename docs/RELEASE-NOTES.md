@@ -10,6 +10,7 @@ The first standard release on the stable channel uses Tauri 2 and Rust, with a R
 - Incomplete connection snapshots cannot produce a successful no-listeners diagnostic.
 - Invalid local state recovers from the last valid backup instead of crashing. Tor cancellation and pending firewall-rule recovery are hardened.
 - Native installation/removal tests, multilingual UI integration, Rust regression tests and dependency vulnerability checks gate publication.
+- Obsolete interface-enumeration/build dependencies were removed. Remaining upstream informational advisories are recorded in the dependency review; the release does not claim zero dependency warnings.
 
 ## Downloads
 

@@ -63,7 +63,7 @@ npm run package
 
 ## Validation and migration
 
-See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
+See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [dependency review](docs/DEPENDENCY-REVIEW.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
 
 Electron data is preserved when migrating. Compatible settings, history and firewall recovery information are copied to the Tauri store. VPN profiles need to be reimported into the new OS credential vault. An existing owned tunnel is retained for explicit recovery/disconnection when its configuration can be copied. Disconnect VPNs using the previous version before switching whenever possible. Invalid local data is preserved and recovered from its last valid backup instead of silently discarded.
 
