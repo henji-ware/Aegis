@@ -15,6 +15,12 @@ async function download(url,name,hash){
   }
   return file;
 }
+async function copyWireGuardLicense(destination,license=manifest.wireguard.license){
+ if(!license||typeof license.path!=='string'||!/^assets\/licenses\/[^/\\]+$/.test(license.path)||!/^[a-f0-9]{64}$/.test(license.sha256||''))throw new Error('Pinned WireGuard license metadata missing or invalid.');
+ const data=await fs.readFile(path.join(root,license.path));
+ if(crypto.createHash('sha256').update(data).digest('hex')!==license.sha256)throw new Error('Checksum mismatch: WireGuard license.');
+ await fs.writeFile(path.join(destination,'COPYING'),data);
+}
 async function zip(file,dir){await fs.mkdir(dir,{recursive:true});await ps('Expand-Archive -LiteralPath '+quote(file)+' -DestinationPath '+quote(dir)+' -Force');}
 async function findClamRoots(dir,depth=0){
  if(depth>9)return [];
@@ -66,7 +72,7 @@ async function prepare(){
   const msi=await download(wg.url,wg.name,wg.sha256),cab=path.join(cache,'wireguard.cab'),wgDir=path.join(resources,'wireguard');
   await fs.writeFile(cab,cabinetFromMsi(await fs.readFile(msi)));await fs.mkdir(wgDir,{recursive:true});
   await run(path.join(process.env.SystemRoot||'C:\\Windows','System32','expand.exe'),['-F:*',cab,wgDir]);
-  const response=await fetch('https://git.zx2c4.com/wireguard-windows/plain/COPYING?h=v1.1.1');if(!response.ok)throw new Error('WireGuard license unavailable.');await fs.writeFile(path.join(wgDir,'COPYING'),await response.text());
+  await copyWireGuardLicense(wgDir);
  }else{
   if(platform==='linux'){await fs.mkdir(extracted,{recursive:true});await run('/usr/bin/dpkg-deb',['-x',file,extracted]);}
   else{await run('/usr/sbin/pkgutil',['--expand-full',file,extracted]);}
@@ -79,6 +85,6 @@ async function prepare(){
  await fs.mkdir(torDir,{recursive:true});await run(platform==='win32'?'tar':'/usr/bin/tar',['-xzf',torFile,'-C',torDir]);
  console.log('Engines prepared for '+key+'. No service was installed and no network configuration was changed.');
 }
-module.exports={cabinetFromMsi,findClamRoots};
+module.exports={cabinetFromMsi,findClamRoots,copyWireGuardLicense};
 if(require.main===module)prepare().catch(e=>{console.error(e.message);process.exitCode=1;});
 

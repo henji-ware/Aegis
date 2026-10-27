@@ -61,6 +61,11 @@
     "name": "wireguard-amd64-1.1.1.msi",
     "url": "https://download.wireguard.com/windows-client/wireguard-amd64-1.1.1.msi",
     "sha256": "7bfed60ad61b785c914b38b61555a975488e1d3ec472dbfb2fcdf498fca75242",
-    "source": "https://git.zx2c4.com/wireguard-windows/tag/?h=v1.1.1"
+    "source": "https://git.zx2c4.com/wireguard-windows/tag/?h=v1.1.1",
+    "license": {
+      "path": "assets/licenses/wireguard-windows-COPYING.txt",
+      "sha256": "fb2a821211c8d0022e3e630a126783b23b58c6dc21c1855154fc77c9c6452166",
+      "sourceURL": "https://raw.githubusercontent.com/WireGuard/wireguard-windows/v1.1.1/COPYING"
+    }
   }
 }
