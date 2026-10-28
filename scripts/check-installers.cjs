@@ -61,7 +61,13 @@ async function payload(extracted){
   execFileSync('/usr/bin/rpm',['--checksig',rpm],{stdio:'inherit'});console.log(execFileSync('/usr/bin/rpm',['-qp','--qf','%{NAME} %{VERSION} %{ARCH}\n',rpm],{encoding:'utf8'}));
   const rpmDir=await temporary('rpm-check');await extractRpm(rpm,rpmDir);await payload(rpmDir);await rpmInstallRoundTrip(rpm);
   const image=await walk(bundle,async(f,e)=>e.isFile()&&f.endsWith('.AppImage'));if(!image)throw Error('AppImage missing');
-  const imageDir=await temporary('appimage-check');execFileSync(image,['--appimage-extract'],{cwd:imageDir,stdio:'ignore',timeout:120000});await payload(path.join(imageDir,'squashfs-root'));
+  // The AppImage runtime intentionally creates extracted directories as 0700
+  // (type2-runtime/src/runtime/runtime.c: mkdir_p). Inspect the actual embedded
+  // filesystem with unsquashfs so extraction does not replace its stored modes.
+  const offset=execFileSync(image,['--appimage-offset'],{encoding:'utf8',timeout:30000}).trim();
+  if(!/^[0-9]+$/.test(offset)||!Number.isSafeInteger(Number(offset))||Number(offset)<=0)throw Error('Invalid AppImage filesystem offset');
+  const imageDir=await temporary('appimage-check'),imageRoot=path.join(imageDir,'squashfs-root');
+  execFileSync('/usr/bin/unsquashfs',['-no-progress','-strict-errors','-offset',offset,'-dest',imageRoot,image],{stdio:'inherit',timeout:120000});await payload(imageRoot);
   console.log('PASS: DEB, RPM integrity/metadata and extracted AppImage checked.');
  }else if(process.platform==='darwin'){
   const app=await walk(bundle,async(f,e)=>e.isDirectory()&&f.endsWith('.app'));if(!app)throw Error('App bundle missing');execFileSync('/usr/bin/codesign',['--verify','--deep','--strict',app],{stdio:'inherit'});await payload(app);
