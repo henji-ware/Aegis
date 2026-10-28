@@ -31,6 +31,17 @@ async function rpmInstallRoundTrip(file){
 async function payload(extracted){
  const engines=await walk(extracted,async(f,e)=>e.isDirectory()&&e.name==='engines'&&await fs.stat(path.join(f,'clamav')).then(s=>s.isDirectory()).catch(()=>false));
  if(!engines)throw Error('Installed engine resources missing: '+extracted);
+ if(process.platform!=='win32'){
+  // Ownership during extraction must not hide owner-only package resources.
+  const checkMode=async file=>{
+   const stat=await fs.lstat(file);
+   if(stat.isSymbolicLink())return;
+   const expected=stat.isDirectory()||(stat.mode&0o111)?0o755:0o644;
+   if((stat.mode&0o7777)!==expected)throw Error('Non-public packaged resource mode: '+file+' ('+(stat.mode&0o7777).toString(8)+')');
+   if(stat.isDirectory())for(const entry of await fs.readdir(file))await checkMode(path.join(file,entry));
+  };
+  await checkMode(engines);
+ }
  if(await walk(engines,async(f,e)=>e.isFile()&&/unrar/i.test(e.name)))throw Error('Restricted UnRAR module found');
  await fs.access(path.join(engines,'clamav/certs/clamav.crt'));
  const executable=await walk(extracted,async(f,e)=>e.isFile()&&e.name===(process.platform==='win32'?'aegis-desktop.exe':'aegis-desktop'));
