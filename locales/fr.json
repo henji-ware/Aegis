@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify recevra votre IP. Aucun fichier, liste de connexions ni clé ne sera envoyé.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Le blocage reste actif après fermeture d’Aegis ou déconnexion du VPN. Désactivez-le ici pour rétablir le réseau.",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "Les détails disponibles figurent dans les journaux de l’opération."
+  "Os detalhes disponíveis estão nos registros da operação.": "Les détails disponibles figurent dans les journaux de l’opération.",
+  "Resultado da análise": "Résultats de l’analyse",
+  "Consultando processos e caminhos dos executáveis…": "Vérification des processus et chemins des exécutables…",
+  "Ver resultado da análise": "Voir les résultats",
+  "Conexões ao vivo": "Connexions en direct",
+  "Conexões analisadas": "Connexions analysées",
+  "Caminho identificado em {checked} de {total} conexões.": "Chemin de l’exécutable identifié pour {checked} connexions sur {total}.",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "Cette vérification examine les ports en écoute et les chemins des exécutables. Elle ne vérifie pas la réputation des IP et ne lance pas automatiquement d’analyse antivirus.",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "Les résultats sont un instantané de cette vérification. La surveillance ne modifie pas cette analyse.",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "La limite de connexions a été atteinte ; la couverture peut être incomplète.",
+  "Nenhum dos sinais locais verificados foi encontrado.": "Aucun des indices locaux vérifiés n’a été trouvé.",
+  "Analisando conexões…": "Analyse des connexions…",
+  "Arquivo acima do limite do mecanismo": "Le fichier dépasse la limite du moteur",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "Ce fichier n’a pas été analysé. ClamAV ne peut pas analyser les fichiers de 2 Gio ou plus.",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "L’analyse n’a pas couvert tous les fichiers. Consultez les raisons ci-dessous.",
+  "Nenhum arquivo elegível para análise": "Aucun fichier admissible à analyser",
+  "Fora do limite": "Hors limite",
+  "Tamanho": "Taille"
 }

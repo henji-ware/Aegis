@@ -34,7 +34,7 @@ Extract the complete Windows ZIP and open `aegis-desktop.exe` without installing
 | Automation | Daily or weekly scans, missed-task recovery, four-hour definition updates, optional startup and tray mode. Tasks run while Aegis is running. |
 | Updates | Version-bound signed packages, download progress and explicit installation on supported installer/AppImage builds. DEB/RPM and portable ZIP builds update manually. |
 
-Connection analysis uses local evidence. A listening port or a temporary executable location is a reason to review, not proof of malware. No external IP reputation service receives your connections. Files are quarantined only after explicit selection, a fresh detection check and native confirmation. No automatic process termination, deletion or real-time antivirus protection is implemented. ClamAV definitions must be downloaded before normal scans; a completed scan is not a guarantee that a file is safe.
+Connection analysis uses local evidence. A listening port or a temporary executable location is a reason to review, not proof of malware. No external IP reputation service receives your connections. The dated analysis snapshot remains separate from live monitoring and reports coverage and review reasons. Files of 2 GiB or larger exceed ClamAV’s engine limit and are explicitly reported as not scanned; other configured limits can also restrict smaller files. Files are quarantined only after explicit selection, a fresh detection check and native confirmation. No automatic process termination, deletion or real-time antivirus protection is implemented. ClamAV definitions must be downloaded before normal scans; a completed scan is not a guarantee that a file is safe.
 
 ## Interface and languages
 

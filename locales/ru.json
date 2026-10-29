@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify получит ваш IP. Файлы, списки подключений и ключи передаваться не будут.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Блокировка сохраняется после закрытия Aegis или отключения VPN. Отключите её здесь для восстановления сети.",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "Доступные подробности приведены в журнале операции."
+  "Os detalhes disponíveis estão nos registros da operação.": "Доступные подробности приведены в журнале операции.",
+  "Resultado da análise": "Результаты анализа",
+  "Consultando processos e caminhos dos executáveis…": "Проверка процессов и путей исполняемых файлов…",
+  "Ver resultado da análise": "Показать результаты анализа",
+  "Conexões ao vivo": "Текущие соединения",
+  "Conexões analisadas": "Проанализировано соединений",
+  "Caminho identificado em {checked} de {total} conexões.": "Путь исполняемого файла определён для {checked} из {total} соединений.",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "Проверяются прослушиваемые порты и пути исполняемых файлов. Репутация IP и автоматическое сканирование на вредоносное ПО не выполняются.",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "Результат — снимок этой проверки. Мониторинг не изменяет этот анализ.",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "Достигнут лимит соединений; охват может быть неполным.",
+  "Nenhum dos sinais locais verificados foi encontrado.": "Проверенные локальные признаки не обнаружены.",
+  "Analisando conexões…": "Анализ соединений…",
+  "Arquivo acima do limite do mecanismo": "Файл превышает ограничение размера",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "Файл не проверен. ClamAV не анализирует файлы размером 2 ГиБ и более.",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "Проверены не все файлы. Причины указаны ниже.",
+  "Nenhum arquivo elegível para análise": "Нет файлов, подходящих для проверки",
+  "Fora do limite": "Превышен лимит",
+  "Tamanho": "Размер"
 }

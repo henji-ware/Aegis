@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify 会收到您的 IP，不会发送文件、连接列表或密钥。",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "关闭 Aegis 或断开 VPN 后仍会阻止流量，请在此关闭阻止以恢复网络。",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "操作日志中显示可用的详细信息。"
+  "Os detalhes disponíveis estão nos registros da operação.": "操作日志中显示可用的详细信息。",
+  "Resultado da análise": "分析结果",
+  "Consultando processos e caminhos dos executáveis…": "正在检查进程和可执行文件路径…",
+  "Ver resultado da análise": "查看分析结果",
+  "Conexões ao vivo": "实时连接",
+  "Conexões analisadas": "已分析的连接",
+  "Caminho identificado em {checked} de {total} conexões.": "已确定 {total} 个连接中 {checked} 个连接的可执行文件路径。",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "此检查查看监听端口和可执行文件路径，不检查 IP 信誉，也不会自动扫描恶意软件。",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "结果是本次检查的快照，实时监控不会更改此分析。",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "已达到连接数量上限，覆盖范围可能不完整。",
+  "Nenhum dos sinais locais verificados foi encontrado.": "未发现所检查的本地迹象。",
+  "Analisando conexões…": "正在分析连接…",
+  "Arquivo acima do limite do mecanismo": "文件超过引擎大小限制",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "此文件未扫描。ClamAV 无法分析 2 GiB 或更大的文件。",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "扫描未覆盖所有文件，原因见下方。",
+  "Nenhum arquivo elegível para análise": "没有符合扫描条件的文件",
+  "Fora do limite": "超出大小限制",
+  "Tamanho": "大小"
 }

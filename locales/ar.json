@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "سيتلقى ipify عنوان IP الخاص بك. لن تُرسل الملفات أو قوائم الاتصالات أو المفاتيح.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "يستمر الحظر بعد إغلاق Aegis أو فصل VPN. عطّله هنا لاستعادة الشبكة.",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "تظهر التفاصيل المتاحة في سجلات العملية."
+  "Os detalhes disponíveis estão nos registros da operação.": "تظهر التفاصيل المتاحة في سجلات العملية.",
+  "Resultado da análise": "نتائج التحليل",
+  "Consultando processos e caminhos dos executáveis…": "جارٍ فحص العمليات ومسارات الملفات التنفيذية…",
+  "Ver resultado da análise": "عرض نتائج التحليل",
+  "Conexões ao vivo": "الاتصالات المباشرة",
+  "Conexões analisadas": "الاتصالات التي تم تحليلها",
+  "Caminho identificado em {checked} de {total} conexões.": "تم تحديد مسار الملف التنفيذي في {checked} من أصل {total} اتصال.",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "يفحص هذا الإجراء منافذ الاستماع ومسارات الملفات التنفيذية. لا يتحقق من سمعة عناوين IP ولا يفحص البرمجيات الضارة تلقائيًا.",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "النتائج لقطة لهذه العملية. لا تغير المراقبة المباشرة هذا التحليل.",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "تم بلوغ حد الاتصالات؛ قد تكون التغطية غير مكتملة.",
+  "Nenhum dos sinais locais verificados foi encontrado.": "لم يتم العثور على أي من المؤشرات المحلية التي تم فحصها.",
+  "Analisando conexões…": "جارٍ تحليل الاتصالات…",
+  "Arquivo acima do limite do mecanismo": "يتجاوز الملف حد حجم محرك الفحص",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "لم يتم فحص هذا الملف. لا يستطيع ClamAV تحليل ملفات بحجم 2 GiB أو أكبر.",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "لم يشمل الفحص جميع الملفات. راجع الأسباب أدناه.",
+  "Nenhum arquivo elegível para análise": "لا توجد ملفات مؤهلة للفحص",
+  "Fora do limite": "يتجاوز الحد",
+  "Tamanho": "الحجم"
 }

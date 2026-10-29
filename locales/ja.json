@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify に IP が送信されます。ファイル・接続一覧・鍵は送信しません。",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Aegis を閉じたり VPN を切断しても遮断は継続します。ネットワークを戻すにはここで無効にしてください。",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "利用できる詳細は操作ログに表示されます。"
+  "Os detalhes disponíveis estão nos registros da operação.": "利用できる詳細は操作ログに表示されます。",
+  "Resultado da análise": "分析結果",
+  "Consultando processos e caminhos dos executáveis…": "プロセスと実行ファイルのパスを確認中…",
+  "Ver resultado da análise": "分析結果を表示",
+  "Conexões ao vivo": "現在の接続",
+  "Conexões analisadas": "分析した接続",
+  "Caminho identificado em {checked} de {total} conexões.": "{total} 件中 {checked} 件の接続で実行ファイルのパスを確認しました。",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "この確認では待ち受けポートと実行ファイルのパスを調べます。IP の評判確認やマルウェアの自動スキャンは行いません。",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "結果は今回の確認時点の記録です。監視によってこの分析は変更されません。",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "接続数の上限に達したため、確認範囲が不完全な場合があります。",
+  "Nenhum dos sinais locais verificados foi encontrado.": "確認対象のローカルな兆候は見つかりませんでした。",
+  "Analisando conexões…": "接続を分析中…",
+  "Arquivo acima do limite do mecanismo": "ファイルがエンジンのサイズ上限を超えています",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "このファイルは未スキャンです。ClamAV は 2 GiB 以上のファイルを分析できません。",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "すべてのファイルをスキャンできませんでした。理由を以下で確認してください。",
+  "Nenhum arquivo elegível para análise": "スキャン対象のファイルがありません",
+  "Fora do limite": "サイズ上限超過",
+  "Tamanho": "サイズ"
 }

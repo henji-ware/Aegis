@@ -102,6 +102,8 @@ pub struct ScanOutput {
     pub detected: u64,
     pub partial: bool,
     pub issues: Vec<Value>,
+    pub error_paths: HashSet<[u8; 32]>,
+    pub size_paths: HashSet<[u8; 32]>,
 }
 impl ScanOutput {
     pub fn accept(&mut self, line: &str) {
@@ -128,15 +130,20 @@ impl ScanOutput {
         {
             self.partial = true;
         }
-        if (line.ends_with(" ERROR")
+        if line.ends_with(" ERROR")
             || line.starts_with("ERROR:")
             || line.contains("Permission denied")
-            || line.contains("Access is denied"))
-            && self.issues.len() < 200
+            || line.contains("Access is denied")
         {
+            self.partial = true;
             let (path, detail) = line.rsplit_once(": ").unwrap_or(("", line));
             let item = crate::scan_plan::issue(path, detail);
-            if !self.issues.contains(&item) {
+            if item["kind"] == "size" {
+                self.size_paths.insert(crate::scan_plan::identity(path));
+            } else {
+                self.error_paths.insert(crate::scan_plan::identity(path));
+            }
+            if self.issues.len() < 200 && !self.issues.contains(&item) {
                 self.issues.push(item);
             }
         }
@@ -158,11 +165,14 @@ impl ScanOutput {
         };
         let scanned = number("Scanned files");
         let infected = number("Infected files").unwrap_or(0).max(self.detected);
-        let errors = number("Total errors").unwrap_or(0);
+        let errors = number("Total errors")
+            .unwrap_or(0)
+            .saturating_sub(self.size_paths.len() as u64)
+            .max(self.error_paths.len() as u64);
         let limited = self.tail.contains("Limits.Exceeded") || self.tail.contains("limit reached");
         let partial =
             self.partial || limited || errors > 0 || code != 0 && code != 1 || scanned.is_none();
-        json!({"scanned":scanned,"infected":infected,"errors":errors,"limited":limited,"partial":partial,"issues":self.issues,"exitCode":code,"threats":self.threats,"threatsTruncated":infected>self.threats.len() as u64,"state":if infected>0{"threats"}else if code==0&&!partial{"completed"}else{"error"}})
+        json!({"scanned":scanned,"infected":infected,"errors":errors,"sizeLimited":self.size_paths.len(),"limited":limited||!self.size_paths.is_empty(),"partial":partial,"issues":self.issues,"exitCode":code,"threats":self.threats,"threatsTruncated":infected>self.threats.len() as u64,"state":if infected>0{"threats"}else if code==0&&!partial{"completed"}else if code==2&&scanned.is_some()&&errors==0&&!self.size_paths.is_empty(){"partial"}else{"error"}})
     }
 }
 fn reserve(core: &Core) -> Result<()> {
@@ -330,7 +340,26 @@ fn start_inner(
         )?;
         if prepared.files.is_empty() {
             if let Ok(mut job) = core.job.lock() {
-                job["summary"] = json!({"scanned":0,"infected":0,"errors":prepared.error_count,"partial":true,"limited":prepared.limited,"issues":prepared.errors,"threats":[]});
+                job["summary"] = json!({"scanned":0,"infected":0,"errors":prepared.error_count,"sizeLimited":prepared.size_limited,"partial":true,"limited":prepared.limited||prepared.size_limited>0,"issues":prepared.errors,"threats":[]});
+                job["progress"] = json!({"phase":"empty","processed":0,"total":0,"percent":null});
+                if prepared.size_limited > 0 && prepared.error_count == 0 {
+                    job["state"] = json!("partial");
+                    job["endedAt"] = json!(store::now());
+                    let saved=core.store.lock().map_err(|_|"state-lock".to_string()).and_then(|mut s|{
+                        s.data["activeScan"]=Value::Null;
+                        s.push("scans",job.clone(),50)?;
+                        s.event("antivirus","Varredura concluída",json!({"scanned":0,"infected":0,"errors":0,"sizeLimited":prepared.size_limited,"partial":true}),"warning")
+                    });
+                    if saved.is_err() {
+                        job["persistenceError"] = json!("result-not-saved");
+                    }
+                    let _ = app.emit(
+                        "aegis:event",
+                        json!({"type":"antivirus","data":job.clone()}),
+                    );
+                    core.scan_busy.store(false, Ordering::SeqCst);
+                    return Ok(job.clone());
+                }
             }
             return Err("scan-no-readable-files".into());
         }
@@ -487,6 +516,9 @@ fn start_inner(
                 job["summary"] = output.result(exit.unwrap_or(-1));
                 if let Some(plan) = &plan {
                     job["summary"]["skipped"] = json!(plan.skipped);
+                    job["summary"]["sizeLimited"] = json!(
+                        job["summary"]["sizeLimited"].as_u64().unwrap_or(0) + plan.size_limited
+                    );
                     job["summary"]["errors"] =
                         json!(job["summary"]["errors"].as_u64().unwrap_or(0) + plan.error_count);
                     if !plan.errors.is_empty()
@@ -495,8 +527,9 @@ fn start_inner(
                     {
                         job["summary"]["partial"] = json!(true);
                     }
-                    job["summary"]["limited"] =
-                        json!(plan.limited || job["summary"]["limited"] == true);
+                    job["summary"]["limited"] = json!(
+                        plan.limited || plan.size_limited > 0 || job["summary"]["limited"] == true
+                    );
                     if let Some(issues) = job["summary"]["issues"].as_array_mut() {
                         issues.extend(plan.errors.iter().cloned());
                         issues.truncate(200);
@@ -673,5 +706,15 @@ mod tests {
         out.accept("Infected files: 0");
         assert_eq!(out.result(0)["state"], "completed");
         assert_eq!(out.result(2)["state"], "error");
+    }
+    #[test]
+    fn file_errors_are_counted_before_the_engine_summary() {
+        let mut out = ScanOutput::default();
+        out.accept("/nonexistent-fixture/file: Can't get file status ERROR");
+        let result = out.result(2);
+        assert_eq!(result["errors"], 1);
+        assert_eq!(result["partial"], true);
+        out.accept("/nonexistent-fixture/file: Can't get file status ERROR");
+        assert_eq!(out.result(2)["errors"], 1);
     }
 }

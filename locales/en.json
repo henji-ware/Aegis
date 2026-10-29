@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify will receive your IP. Files, connection lists and keys will not be sent.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Blocking remains after closing Aegis or disconnecting the VPN. Disable it here to restore networking.",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "Available details are shown in the operation logs."
+  "Os detalhes disponíveis estão nos registros da operação.": "Available details are shown in the operation logs.",
+  "Resultado da análise": "Analysis results",
+  "Consultando processos e caminhos dos executáveis…": "Checking processes and executable paths…",
+  "Ver resultado da análise": "View analysis results",
+  "Conexões ao vivo": "Live connections",
+  "Conexões analisadas": "Connections analyzed",
+  "Caminho identificado em {checked} de {total} conexões.": "Executable path identified for {checked} of {total} connections.",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "This check reviews listening ports and executable paths. It does not check IP reputation or automatically scan for malware.",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "Results are a snapshot of this check. Live monitoring does not change this analysis.",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "The connection limit was reached; coverage may be incomplete.",
+  "Nenhum dos sinais locais verificados foi encontrado.": "None of the checked local signals were found.",
+  "Analisando conexões…": "Analyzing connections…",
+  "Arquivo acima do limite do mecanismo": "File exceeds the engine size limit",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "This file was not scanned. ClamAV cannot analyze files of 2 GiB or larger.",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "The scan did not cover every file. See the reasons below.",
+  "Nenhum arquivo elegível para análise": "No eligible files to scan",
+  "Fora do limite": "Over the size limit",
+  "Tamanho": "Size"
 }

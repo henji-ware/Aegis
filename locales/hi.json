@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify को आपका IP मिलेगा। फ़ाइलें, कनेक्शन सूचियाँ और कुंजियाँ नहीं भेजी जाएँगी।",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Aegis बंद करने या VPN हटाने के बाद भी अवरोध रहता है। नेटवर्क लौटाने के लिए इसे यहाँ बंद करें।",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "उपलब्ध विवरण कार्रवाई के लॉग में दिखाए जाते हैं।"
+  "Os detalhes disponíveis estão nos registros da operação.": "उपलब्ध विवरण कार्रवाई के लॉग में दिखाए जाते हैं।",
+  "Resultado da análise": "विश्लेषण के परिणाम",
+  "Consultando processos e caminhos dos executáveis…": "प्रक्रियाओं और निष्पादन योग्य फ़ाइलों के पथ की जाँच हो रही है…",
+  "Ver resultado da análise": "विश्लेषण के परिणाम देखें",
+  "Conexões ao vivo": "वर्तमान कनेक्शन",
+  "Conexões analisadas": "विश्लेषित कनेक्शन",
+  "Caminho identificado em {checked} de {total} conexões.": "{total} में से {checked} कनेक्शन के लिए निष्पादन योग्य फ़ाइल का पथ पहचाना गया।",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "यह जाँच सुनने वाले पोर्ट और निष्पादन योग्य फ़ाइलों के पथ देखती है। यह IP की प्रतिष्ठा नहीं जाँचती और मैलवेयर स्कैन स्वचालित रूप से नहीं करती।",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "परिणाम इस जाँच का स्नैपशॉट हैं। लाइव निगरानी इस विश्लेषण को नहीं बदलती।",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "कनेक्शन की सीमा पूरी हो गई है; जाँच का दायरा अधूरा हो सकता है।",
+  "Nenhum dos sinais locais verificados foi encontrado.": "जाँचे गए स्थानीय संकेतों में से कोई नहीं मिला।",
+  "Analisando conexões…": "कनेक्शन का विश्लेषण हो रहा है…",
+  "Arquivo acima do limite do mecanismo": "फ़ाइल इंजन की आकार सीमा से बड़ी है",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "यह फ़ाइल स्कैन नहीं हुई। ClamAV 2 GiB या उससे बड़ी फ़ाइलों का विश्लेषण नहीं कर सकता।",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "स्कैन में सभी फ़ाइलें शामिल नहीं हुईं। कारण नीचे देखें।",
+  "Nenhum arquivo elegível para análise": "स्कैन के योग्य कोई फ़ाइल नहीं",
+  "Fora do limite": "आकार सीमा से अधिक",
+  "Tamanho": "आकार"
 }

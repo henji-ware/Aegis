@@ -1,6 +1,6 @@
 [package]
 name = "aegis-desktop"
-version = "1.0.0"
+version = "1.0.1"
 description = "Local desktop security and privacy application"
 authors = ["Aegis contributors"]
 license = "MIT"

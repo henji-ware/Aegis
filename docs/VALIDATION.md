@@ -1,6 +1,6 @@
 # Release validation
 
-Version 1.0.0 uses the stable release channel. Publication requires successful frontend, Rust dependency-audit and native desktop jobs. Results apply to the exact release commit; consult the release's GitHub Actions run for executed checks.
+Version 1.0.1 uses the stable release channel. Publication requires successful frontend, Rust dependency-audit and native desktop jobs. Results apply to the exact release commit; consult the release's GitHub Actions run for executed checks.
 
 | Layer | Checks |
 | --- | --- |

@@ -9,6 +9,10 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::Instant,
 };
+pub const MAX_ENGINE_FILE_BYTES: u64 = i32::MAX as u64;
+pub fn size_issue(path: &str, bytes: u64, detail: &str) -> Value {
+    json!({"path":path,"kind":"size","bytes":bytes,"limit":MAX_ENGINE_FILE_BYTES,"detail":detail})
+}
 
 pub fn identity(path: &str) -> [u8; 32] {
     let value = if cfg!(windows) {
@@ -56,6 +60,13 @@ pub fn track(line: &str, job: &mut Value, known: &HashSet<[u8; 32]>, seen: &mut 
 }
 pub fn issue(path: &str, detail: &str) -> Value {
     let lower = detail.to_lowercase();
+    if lower.contains("file status") || lower.contains("fstat") {
+        if let Ok(meta) = fs::metadata(path) {
+            if meta.len() > MAX_ENGINE_FILE_BYTES {
+                return size_issue(path, meta.len(), detail);
+            }
+        }
+    }
     let kind =
         if lower.contains("permission") || lower.contains("access") || lower.contains("denied") {
             "permission"
@@ -80,6 +91,7 @@ pub struct Plan {
     pub files: HashSet<[u8; 32]>,
     pub errors: Vec<Value>,
     pub error_count: u64,
+    pub size_limited: u64,
     pub skipped: u64,
     pub limited: bool,
 }
@@ -100,6 +112,7 @@ pub fn build(
         files: HashSet::new(),
         errors: vec![],
         error_count: 0,
+        size_limited: 0,
         skipped: 0,
         limited: false,
     };
@@ -219,6 +232,18 @@ pub fn build(
                 }
             }
         } else if meta.is_file() {
+            if meta.len() > MAX_ENGINE_FILE_BYTES {
+                plan.skipped += 1;
+                plan.size_limited += 1;
+                if plan.errors.len() < 200 {
+                    plan.errors.push(size_issue(
+                        &file.to_string_lossy(),
+                        meta.len(),
+                        "ClamAV cannot analyze files of 2 GiB or larger; file was not scanned.",
+                    ));
+                }
+                continue;
+            }
             let text = file.to_str().filter(|s| !s.contains(['\n', '\r']));
             if let Some(text) = text {
                 if !plan.files.insert(identity(text)) {
@@ -301,6 +326,32 @@ mod tests {
     fn errors_have_actionable_categories() {
         assert_eq!(issue("file", "Permission denied")["kind"], "permission");
         assert_eq!(issue("file", "No such file")["kind"], "missing");
+    }
+    #[test]
+    fn oversized_file_is_reported_without_sending_it_to_the_engine() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("large-video.mkv");
+        let handle = fs::File::create(&file).unwrap();
+        handle.set_len(MAX_ENGINE_FILE_BYTES + 1).unwrap();
+        drop(handle);
+        let plan = build(
+            &[file.clone()],
+            &[],
+            root.path().join("scan.list"),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
+        assert!(plan.files.is_empty());
+        assert_eq!(plan.size_limited, 1);
+        assert_eq!(plan.error_count, 0);
+        assert_eq!(plan.errors[0]["kind"], "size");
+        assert_eq!(plan.errors[0]["bytes"], MAX_ENGINE_FILE_BYTES + 1);
+        assert!(fs::read_to_string(&plan.path).unwrap().is_empty());
+        assert_eq!(
+            issue(&file.to_string_lossy(), "Can't get file status ERROR")["kind"],
+            "size"
+        );
     }
     #[test]
     fn progress_ignores_archive_subitems_and_duplicate_matches() {

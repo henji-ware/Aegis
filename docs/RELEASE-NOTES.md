@@ -1,28 +1,13 @@
-# Aegis 1.0.0
+# Aegis 1.0.1
 
-- Reorganized black overview with dark green details, meaningful process-to-socket 3D relationships, pointer parallax, reduced motion and a readable WebGL fallback.
-- Larger, sharper cube icon for the Windows Start menu and application packages. Logo-only sidebar; no storage/version footer, external firewall promotions or components panel.
-- Ten bundled interface languages. Language selection remains in Preferences; original operating-system and engine evidence stays available separately.
-- Independent ClamAV scans with file inventory, real processed/total percentage, current path, per-file causes and one partial-result explanation. Preparation remains indeterminate until the file list is known.
-- Explicit quarantine with detection recheck, SHA-256 verification, recoverable journal state and restoration that refuses an existing destination.
-- Daily/weekly schedules, selected weekday, missed-task recovery, opt-in definition checks every four hours, startup and background tray mode. Aegis must be running for these tasks.
-- Opt-in connection change history and in-app alerts for new non-loopback listening services. Signals support review and do not establish maliciousness.
-- Local VPN interface, route and DNS evidence, optional authorized public-IP lookup, and explicit reversible Linux nftables blocking outside an active owned single-peer WireGuard tunnel.
-- Version-bound signed in-app updates on supported Windows installers, AppImage and macOS app builds. DEB/RPM and portable Windows builds use manual updates.
-- Windows no-install ZIP, NSIS EXE and MSI; Linux DEB, RPM and AppImage; macOS Apple silicon DMG. Architecture is recorded in each filename.
+- Connection analysis now displays a dated result panel with counts, review reasons, coverage, filters, loading and error states. The completed snapshot stays visible when live monitoring refreshes. Switching between the snapshot and live sockets is explicit; unknown process access is shown as not verified.
+- The report explicitly describes its scope: listening-port and executable-path signals. It does not query IP reputation or automatically scan executable contents. The selected executable can be scanned separately with ClamAV from its connection details.
+- Files of 2 GiB or larger are excluded before launching ClamAV and reported as not scanned because of the engine's size limit. This avoids the known Windows fstat/file-status error. Size exclusions are separate from read errors and detections; the result remains partial, never a clean verdict for an unscanned file. Other configured engine limits can also restrict smaller files.
+- An all-oversized selection produces an explicit partial result with zero files scanned, rather than a generic engine failure. Observed file errors are counted before the engine emits its final summary.
+- Added multilingual UI regressions for preserved results after live updates, review/unknown/empty/failure states, and oversized-file notices, plus native sparse-file inventory regression coverage.
 
-## Validation
+## Packages and trust
 
-Publication is gated by frontend checks, ten-language UI integration, dependency audits, Rust regression tests, native engine tests, installer checks and updater signature/tamper tests. The Linux VPN test creates a real WireGuard tunnel in disposable disconnected namespaces and exercises IPv4/IPv6 blocking, tunnel loss and owned-rule removal. Consult the exact release workflow and VALIDATION.md for executed evidence and limits.
+Windows x64 EXE/MSI and no-install ZIP; Linux x64 DEB/RPM/AppImage; macOS Apple silicon DMG/app archive. All release gates must pass before stable publication. Updater artifacts are version-bound and signed. Windows Authenticode and Apple Developer ID/notarization are still not supplied; updater signatures do not establish OS publisher trust.
 
-## Behavior and limits
-
-ClamAV definitions must be downloaded before normal malware scans. Scanning is on demand or scheduled; no continuous file interception or automatic deletion is supplied. Quarantine containers encode file bytes to prevent accidental execution; they are not encrypted storage. Definition downloads may be rate limited by the upstream service, with original errors retained.
-
-VPN servers/profiles are supplied by the user. The Linux blocking control persists after tunnel/app closure until explicitly removed. Route/DNS configuration checks and a public-IP result are not a comprehensive leak test. Tor provides a loopback SOCKS proxy that applications must choose to use. Firewall/VPN changes require native confirmation and OS authorization.
-
-Windows artifacts currently have no trusted Authenticode publisher certificate; macOS has no Apple Developer ID signature/notarization. Updater signatures, SHA-256 checksums and GitHub build attestations cover separate integrity/provenance properties and do not replace OS publisher trust. Keep system protections enabled.
-
-## Upgrade
-
-Existing Tauri settings, history and recovery information are retained. New automation controls default to off. Data remains in the user profile after uninstall. When migrating from Electron, compatible records are preserved and VPN secrets must be reimported into the OS credential vault. Disconnect a tunnel managed by the old version before switching versions.
+Existing settings, profiles and history are retained. Close an older running instance before opening the new portable build. Keep the complete portable folder together. ClamAV scanning remains on demand or scheduled and requires current definitions; a lack of local connection signals or detections is not proof of safety.

@@ -509,5 +509,22 @@
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify erhält Ihre IP. Dateien, Verbindungslisten und Schlüssel werden nicht gesendet.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Die Sperre bleibt nach dem Schließen von Aegis oder Trennen des VPN aktiv. Hier deaktivieren, um das Netzwerk freizugeben.",
   "IPv6": "IPv6",
-  "Os detalhes disponíveis estão nos registros da operação.": "Verfügbare Details stehen in den Vorgangsprotokollen."
+  "Os detalhes disponíveis estão nos registros da operação.": "Verfügbare Details stehen in den Vorgangsprotokollen.",
+  "Resultado da análise": "Analyseergebnisse",
+  "Consultando processos e caminhos dos executáveis…": "Prozesse und Programmpfade werden geprüft…",
+  "Ver resultado da análise": "Analyseergebnisse anzeigen",
+  "Conexões ao vivo": "Aktuelle Verbindungen",
+  "Conexões analisadas": "Analysierte Verbindungen",
+  "Caminho identificado em {checked} de {total} conexões.": "Programmpfad für {checked} von {total} Verbindungen ermittelt.",
+  "A consulta verifica portas em escuta e caminhos de executáveis. Não consulta reputação de IPs nem faz uma varredura automática de malware.": "Diese Prüfung untersucht offene Ports und Programmpfade. Sie prüft keine IP-Reputation und startet keinen automatischen Malware-Scan.",
+  "O resultado é uma fotografia da consulta. O monitoramento não altera esta análise.": "Die Ergebnisse sind eine Momentaufnahme dieser Prüfung. Die Live-Überwachung ändert diese Analyse nicht.",
+  "A consulta atingiu o limite de conexões; a cobertura pode estar incompleta.": "Das Verbindungslimit wurde erreicht; die Abdeckung kann unvollständig sein.",
+  "Nenhum dos sinais locais verificados foi encontrado.": "Keine der geprüften lokalen Auffälligkeiten gefunden.",
+  "Analisando conexões…": "Verbindungen werden analysiert…",
+  "Arquivo acima do limite do mecanismo": "Datei überschreitet die Größenbegrenzung",
+  "Este arquivo não foi verificado. O ClamAV não analisa arquivos de 2 GiB ou mais.": "Diese Datei wurde nicht gescannt. ClamAV kann Dateien ab 2 GiB nicht analysieren.",
+  "A varredura não cobriu todos os arquivos. Veja os motivos abaixo.": "Der Scan hat nicht alle Dateien erfasst. Die Gründe stehen unten.",
+  "Nenhum arquivo elegível para análise": "Keine geeigneten Dateien zum Scannen",
+  "Fora do limite": "Über der Grenze",
+  "Tamanho": "Größe"
 }
