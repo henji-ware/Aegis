@@ -98,7 +98,15 @@ jobs:
         env:
           AEGIS_NATIVE_TEST_RESOURCES: .build/bundle-resources
       - run: node scripts/rust-notices.cjs
+      - name: Prepare updater signing
+        run: node scripts/prepare-update-signing.cjs
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       - run: npm run package -- --verbose --bundles ${{ matrix.bundles }}
+      - name: Verify updater artifact signatures and tamper rejection
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml updater_package_signatures
+        env:
+          AEGIS_VERIFY_UPDATER_ARTIFACTS: 'true'
       - uses: actions/upload-artifact@v4
         with:
           name: aegis-${{ runner.os }}-${{ runner.arch }}
@@ -109,6 +117,8 @@ jobs:
             src-tauri/target/release/bundle/**/*.rpm
             src-tauri/target/release/bundle/**/*.AppImage
             src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.sig
+            src-tauri/target/release/bundle/**/*.app.tar.gz
           if-no-files-found: error
       - run: node scripts/check-installers.cjs
       - if: runner.os == 'Windows'

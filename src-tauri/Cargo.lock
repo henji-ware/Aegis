@@ -16,6 +16,7 @@ dependencies = [
  "chrono",
  "keyring",
  "libc",
+ "minisign-verify",
  "regex",
  "reqwest",
  "serde",

@@ -3,6 +3,70 @@ use serde_json::{json, Value};
 use std::{sync::atomic::Ordering, time::Duration};
 use tauri::Emitter;
 use tauri_plugin_updater::UpdaterExt;
+
+#[cfg(test)]
+mod tests {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use minisign_verify::{PublicKey, Signature};
+    use std::{fs, path::Path};
+    #[test]
+    fn updater_package_signatures() {
+        if std::env::var("AEGIS_VERIFY_UPDATER_ARTIFACTS").as_deref() != Ok("true") {
+            return;
+        }
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let config: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(root.join("tauri.conf.json")).unwrap())
+                .unwrap();
+        let public = String::from_utf8(
+            STANDARD
+                .decode(config["plugins"]["updater"]["pubkey"].as_str().unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+        let key = PublicKey::decode(&public).unwrap();
+        let mut signatures = vec![];
+        fn walk(path: &Path, found: &mut Vec<std::path::PathBuf>) {
+            for entry in fs::read_dir(path).unwrap() {
+                let p = entry.unwrap().path();
+                if p.is_dir() {
+                    walk(&p, found);
+                } else if p.extension().is_some_and(|s| s == "sig") {
+                    found.push(p);
+                }
+            }
+        }
+        walk(&root.join("target/release/bundle"), &mut signatures);
+        assert!(
+            signatures.len() >= if cfg!(windows) { 2 } else { 1 },
+            "Missing signed updater artifacts"
+        );
+        for path in signatures {
+            let sig = String::from_utf8(
+                STANDARD
+                    .decode(fs::read_to_string(&path).unwrap().trim())
+                    .unwrap(),
+            )
+            .unwrap();
+            let sig = Signature::decode(&sig).unwrap();
+            let package = path.with_file_name(
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .trim_end_matches(".sig"),
+            );
+            let mut bytes = fs::read(&package).unwrap();
+            key.verify(&bytes, &sig, true)
+                .expect("Updater artifact must match the embedded public key");
+            assert!(!bytes.is_empty());
+            bytes[0] ^= 1;
+            assert!(
+                key.verify(&bytes, &sig, true).is_err(),
+                "Tampered updater artifact was accepted"
+            );
+        }
+    }
+}
 pub fn check(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
     let update = tauri::async_runtime::block_on(
         app.updater_builder()
