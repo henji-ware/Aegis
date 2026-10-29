@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Aegis",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "identifier": "org.aegis.desktop",
   "build": {
     "beforeDevCommand": "npm run dev:web",
@@ -18,7 +18,7 @@
         "height": 960,
         "minWidth": 1080,
         "minHeight": 760,
-        "backgroundColor": "#07100d",
+        "backgroundColor": "#080a09",
         "devtools": false
       }
     ],
@@ -77,7 +77,9 @@
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0t64 | libgtk-3-0",
           "iproute2",
-          "pkexec"
+          "pkexec",
+          "wireguard-tools",
+          "nftables"
         ]
       },
       "rpm": {
@@ -85,13 +87,29 @@
           "webkit2gtk4.1",
           "gtk3",
           "iproute",
-          "polkit"
+          "polkit",
+          "wireguard-tools",
+          "nftables"
         ]
       }
     },
     "macOS": {
       "minimumSystemVersion": "12.0",
       "signingIdentity": "-"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhDRkRGMTc1RjE5QkVEMDYKUldRRzdadnhkZkg5aklzVld2SVh0QWJFK2hiUHVIVi8zczVTeW5UZEpMV0VpQjkvQlpLMVJSbTcK",
+      "endpoints": [
+        "https://github.com/henji-ware/Aegis/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      },
+      "requireSignedVersion": true,
+      "allowDowngrades": false
     }
   }
 }

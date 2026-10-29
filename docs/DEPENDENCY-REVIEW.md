@@ -1,6 +1,6 @@
-# Dependency review — 0.4.1
+# Dependency review — 1.0.0
 
-Review date: 2026-10-27. The locked dependency graph is checked with cargo-audit against RustSec, and the frontend lockfile is checked with npm audit. CI output is retained; these tools do not replace an independent security review.
+Review date: 2026-10-28. The locked dependency graph is checked with cargo-audit against RustSec, and the frontend lockfile is checked with npm audit. CI output is retained; these tools do not replace an independent security review.
 
 The obsolete `get_if_addrs` dependency and its unmaintained `gcc` build dependency were removed. Interface addresses now use the existing sysinfo dependency, avoiding a second native interface-enumeration library.
 

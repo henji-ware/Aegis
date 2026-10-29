@@ -142,7 +142,7 @@ pub fn profile(text: &str) -> Result<(String, Value)> {
     }
     Ok((
         clean.join("\n") + "\n",
-        json!({"endpoint":endpoint,"addresses":addresses,"dns":dns,"fullTunnel":full,"ipv6":ipv6}),
+        json!({"endpoint":endpoint,"addresses":addresses,"dns":dns,"fullTunnel":full,"ipv6":ipv6,"peers":peers,"nativeKillSwitch":peers==1&&(full||ipv6)}),
     ))
 }
 fn credential(id: &str) -> Result<keyring::Entry> {

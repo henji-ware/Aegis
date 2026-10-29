@@ -2,13 +2,18 @@
 use std::path::Path;
 mod antivirus;
 mod audit;
+mod automation;
 mod firewall;
 mod localization;
 mod network;
 mod platform;
 mod privacy;
+mod quarantine;
 mod runner;
+mod scan_plan;
 mod store;
+mod updates;
+mod vpn_checks;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -21,6 +26,7 @@ use std::{
 };
 use store::Result;
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_opener::OpenerExt;
 #[derive(Clone)]
@@ -37,6 +43,7 @@ pub struct Core {
     pub tor_busy: Arc<AtomicBool>,
     pub tor_cancel: Arc<AtomicBool>,
     pub analysis: Arc<Mutex<HashMap<String, network::Snapshot>>>,
+    pub update: Arc<Mutex<Option<tauri_plugin_updater::Update>>>,
     mutation: Arc<AtomicBool>,
     auditing: Arc<AtomicBool>,
     closing: Arc<AtomicBool>,
@@ -59,6 +66,7 @@ impl Core {
             tor_busy: Arc::new(AtomicBool::new(false)),
             tor_cancel: Arc::new(AtomicBool::new(false)),
             analysis: Arc::new(Mutex::new(HashMap::new())),
+            update: Arc::new(Mutex::new(None)),
             mutation: Arc::new(AtomicBool::new(false)),
             auditing: Arc::new(AtomicBool::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
@@ -122,7 +130,32 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
                 s.data["settings"][k] = v.clone();
             }
             s.save()?;
-            Ok(s.data["settings"].clone())
+            let settings = s.data["settings"].clone();
+            drop(s);
+            if payload.get("language").is_some() {
+                if let Some(tray) = app.tray_by_id("aegis") {
+                    let show = tauri::menu::MenuItem::with_id(
+                        app,
+                        "show",
+                        localization::tx(core, "Mostrar Aegis"),
+                        true,
+                        None::<&str>,
+                    );
+                    let quit = tauri::menu::MenuItem::with_id(
+                        app,
+                        "quit",
+                        localization::tx(core, "Sair"),
+                        true,
+                        None::<&str>,
+                    );
+                    if let (Ok(show), Ok(quit)) = (show, quit) {
+                        if let Ok(menu) = tauri::menu::Menu::with_items(app, &[&show, &quit]) {
+                            let _ = tray.set_menu(Some(menu));
+                        }
+                    }
+                }
+            }
+            Ok(settings)
         }
         "history" => {
             let s = core.store.lock().map_err(|_| "state-lock")?;
@@ -164,7 +197,68 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
             antivirus::start(core, app, "custom", Some(network::resolve(core, token)?))
         }
         "av:status" => antivirus::status(core),
+        "startup:status" => {
+            Ok(json!({"enabled":app.autolaunch().is_enabled().map_err(|e|e.to_string())?}))
+        }
+        "startup:set" => {
+            let enabled = payload["enabled"].as_bool().ok_or("invalid-settings")?;
+            let manager = app.autolaunch();
+            if enabled {
+                manager.enable()
+            } else {
+                manager.disable()
+            }
+            .map_err(|e| e.to_string())?;
+            let actual = manager.is_enabled().map_err(|e| e.to_string())?;
+            if actual != enabled {
+                return Err("startup-state-unconfirmed".into());
+            }
+            Ok(json!({"enabled":actual}))
+        }
+        "update:check" => updates::check(core, app),
+        "update:install" => {
+            confirm(
+                app,
+                core,
+                "Atualizações do Aegis",
+                "Instalar e reiniciar",
+                "O Tor será interrompido. A VPN ativa continuará conectada.",
+            )?;
+            updates::install(core, app)
+        }
+        "automation:status" => automation::status(core),
+        "automation:folder" => {
+            if let Some(path) = selected(app, core, "Escolha o que deseja verificar", true)? {
+                let path = path.canonicalize().map_err(|e| e.to_string())?;
+                let mut s = core.store.lock().map_err(|_| "state-lock")?;
+                s.data["scheduleFolder"] = json!(path);
+                s.save()?;
+            }
+            automation::status(core)
+        }
         "av:update" => antivirus::start(core, app, "update", None),
+        "quarantine:list" => quarantine::list(core),
+        "quarantine:add" => {
+            confirm(app,core,"Quarentena","Isolar arquivo","O original será movido para um contêiner não executável. Você poderá restaurá-lo depois.")?;
+            quarantine::isolate(
+                core,
+                payload["scan"].as_str().ok_or("invalid-quarantine-item")?,
+                payload["index"].as_u64().ok_or("invalid-quarantine-item")? as usize,
+            )
+        }
+        "quarantine:restore" => {
+            confirm(
+                app,
+                core,
+                "Restaurar arquivo",
+                "Restaurar arquivo",
+                "O arquivo pode conter malware. Nenhum arquivo existente será substituído.",
+            )?;
+            quarantine::restore(
+                core,
+                payload["id"].as_str().ok_or("invalid-quarantine-item")?,
+            )
+        }
         "av:scan" => {
             let kind = payload["type"].as_str().ok_or("invalid-scan-type")?;
             let path = if kind == "custom" {
@@ -229,6 +323,25 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
             firewall::remove(core, id)
         }
         "vpn:status" => privacy::vpn_status(core),
+        "vpn:diagnose" => vpn_checks::diagnose(core),
+        "vpn:public-ip" => {
+            confirm(
+                app,
+                core,
+                "Consultar IP público com autorização",
+                "Consultar IP público no ipify?",
+                "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.",
+            )?;
+            vpn_checks::public_ip()
+        }
+        "vpn:protect" => {
+            confirm(app,core,"Bloqueio fora do túnel","Ativar bloqueio","O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.")?;
+            vpn_checks::protect(core)
+        }
+        "vpn:unprotect" => {
+            confirm(app,core,"Desativar bloqueio","Desativar bloqueio","Conexões antes bloqueadas por esta regra poderão ser permitidas por outras políticas.")?;
+            vpn_checks::unprotect(core)
+        }
         "vpn:import" => {
             let file = app
                 .dialog()
@@ -301,8 +414,6 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
                 Some("tor") => "https://www.torproject.org/download/",
                 Some("torDocs") => "https://support.torproject.org/",
                 Some("wireguard") => "https://www.wireguard.com/install/",
-                Some("portmaster") => "https://safing.io/portmaster/",
-                Some("lulu") => "https://objective-see.org/products/lulu.html",
                 Some("sourceClam") => "https://github.com/Cisco-Talos/clamav",
                 Some("sourceTor") => "https://gitlab.torproject.org/tpo/core/tor",
                 Some("sourceWireguard") => "https://git.zx2c4.com/wireguard-windows/",
@@ -349,12 +460,20 @@ async fn aegis_call(
         let mutation = matches!(
             method.as_str(),
             "av:scan"
+                | "av:update"
+                | "update:install"
+                | "startup:set"
+                | "quarantine:add"
+                | "quarantine:restore"
+                | "automation:folder"
                 | "firewall:harden"
                 | "firewall:restore"
                 | "firewall:block"
                 | "firewall:remove"
                 | "vpn:import"
                 | "vpn:connect"
+                | "vpn:protect"
+                | "vpn:unprotect"
                 | "vpn:disconnect"
                 | "vpn:remove"
         );
@@ -468,7 +587,15 @@ fn begin_close(app: tauri::AppHandle, core: Core) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let application = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--background"]),
+        ))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if args.iter().any(|a| a == "--background") {
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
@@ -488,13 +615,63 @@ pub fn run() {
             let resources = app.path().resource_dir()?.join("engines");
             let core = Core::new(dir, resources).map_err(std::io::Error::other)?;
             migrate(&core);
-            app.manage(core);
+            app.manage(core.clone());
+            let show = tauri::menu::MenuItem::with_id(
+                app,
+                "show",
+                localization::tx(&core, "Mostrar Aegis"),
+                true,
+                None::<&str>,
+            )?;
+            let quit = tauri::menu::MenuItem::with_id(
+                app,
+                "quit",
+                localization::tx(&core, "Sair"),
+                true,
+                None::<&str>,
+            )?;
+            let menu = tauri::menu::Menu::with_items(app, &[&show, &quit])?;
+            let mut tray = tauri::tray::TrayIconBuilder::with_id("aegis")
+                .menu(&menu)
+                .tooltip("Aegis")
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => begin_close(app.clone(), app.state::<Core>().inner().clone()),
+                    _ => {}
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            let _ = tray.build(app);
+            if std::env::args_os().any(|a| a == "--background") && app.tray_by_id("aegis").is_some()
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+            automation::start(core, app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![aegis_call])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                if window.app_handle().tray_by_id("aegis").is_some()
+                    && window
+                        .state::<Core>()
+                        .store
+                        .lock()
+                        .map(|s| s.data["settings"]["background"] == true)
+                        .unwrap_or(false)
+                {
+                    let _ = window.hide();
+                    return;
+                }
                 begin_close(
                     window.app_handle().clone(),
                     window.state::<Core>().inner().clone(),
@@ -616,6 +793,37 @@ mod native_tests {
         }
         assert_eq!(parsed.result(output.code)["infected"], 1);
         assert_eq!(parsed.result(output.code)["state"], "threats");
+        let clean = redirected.join("clean-fixture.txt");
+        std::fs::write(&clean, "a benign unrelated file").unwrap();
+        let plan = scan_plan::build(
+            &[redirected.clone()],
+            &[],
+            temporary.path().join("fixture.list"),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
+        let listed = runner::capture(
+            &scanner,
+            &[
+                format!("--database={}", db.display()),
+                format!("--file-list={}", plan.path.display()),
+                "--verbose".into(),
+                "--stdout".into(),
+            ],
+            30,
+            None,
+            &runner::runtime_env(&core.resources, "clamav"),
+        )
+        .unwrap();
+        assert_eq!(listed.code, 1, "{}", listed.text);
+        let mut progress = json!({"progress":{"processed":0,"total":plan.files.len(),"percent":0}});
+        let mut seen = std::collections::HashSet::new();
+        for line in listed.text.lines() {
+            scan_plan::track(line, &mut progress, &plan.files, &mut seen);
+        }
+        assert_eq!(progress["progress"]["processed"], 2, "{}", listed.text);
+        assert_eq!(progress["progress"]["percent"], 100);
         assert_eq!(
             parsed.result(output.code)["threats"][0]["path"],
             fixture.to_string_lossy().as_ref()

@@ -40,7 +40,11 @@ pub fn write_private(path: &Path, bytes: &[u8], create_new: bool) -> Result<()> 
         .map_err(|e| e.to_string())
 }
 pub fn defaults() -> Value {
-    json!({"version":2,"settings":{"reducedMotion":false,"liveNetwork":false,"language":"system"},"history":[],"audits":[],"scans":[],"rules":[],"profiles":[],"activeVpn":null,"activeScan":null,"firewallBackup":null})
+    let mut data = json!({"version":2,"settings":{"reducedMotion":false,"liveNetwork":false,"language":"system"},"history":[],"audits":[],"scans":[],"rules":[],"profiles":[],"activeVpn":null,"activeScan":null,"firewallBackup":null,"automation":{},"scheduleFolder":null,"networkMonitor":null,"networkHistory":[],"quarantine":[],"killSwitch":null});
+    for (key, value) in crate::automation::defaults().as_object().unwrap() {
+        data["settings"][key] = value.clone();
+    }
+    data
 }
 pub const LANGUAGES: [&str; 11] = [
     "system", "pt-BR", "en", "es", "fr", "de", "ru", "zh-CN", "ja", "ar", "hi",
@@ -54,16 +58,51 @@ pub fn settings(value: &Value) -> Result<()> {
         match key.as_str() {
             "language" if val.as_str().is_some_and(|s| LANGUAGES.contains(&s)) => (),
             "reducedMotion" | "liveNetwork" if val.is_boolean() => (),
+            _ if crate::automation::valid(key, val) => (),
             _ => return Err("invalid-settings".into()),
         }
     }
     Ok(())
 }
 pub fn parse(text: &str) -> Result<Value> {
-    let value: Value =
+    let mut value: Value =
         serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| e.to_string())?;
     if value["version"] != 2 {
         return Err("unsupported-store-version".into());
+    }
+    if value["settings"].is_object() {
+        for (key, default) in crate::automation::defaults().as_object().unwrap() {
+            if value["settings"].get(key).is_none() {
+                value["settings"][key] = default.clone();
+            }
+        }
+    }
+    if value["settings"]["schedule"].is_object()
+        && value["settings"]["schedule"].get("weekday").is_none()
+    {
+        value["settings"]["schedule"]["weekday"] = json!(1);
+    }
+    for key in [
+        "automation",
+        "scheduleFolder",
+        "networkMonitor",
+        "networkHistory",
+        "quarantine",
+        "killSwitch",
+    ] {
+        if value.get(key).is_none() {
+            value[key] = defaults()[key].clone();
+        }
+    }
+    if !value["automation"].is_object()
+        || !value["networkHistory"]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
+        || !value["quarantine"]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
+    {
+        return Err("invalid-local-data".into());
     }
     for key in ["history", "audits", "scans", "rules", "profiles"] {
         if !value[key]
@@ -306,6 +345,34 @@ mod tests {
         let mut data = defaults();
         data["profiles"] = json!([{"id":"profile","name":"VPN","meta":{"dns":null,"fullTunnel":true,"ipv6":true}}]);
         assert!(parse(&data.to_string()).is_err());
+    }
+    #[test]
+    fn legacy_041_settings_upgrade_without_losing_history() {
+        let mut old = defaults();
+        old["history"] = json!([{"id":"keep","title":"previous diagnostic"}]);
+        for key in [
+            "autoDefinitions",
+            "background",
+            "onboardingDone",
+            "schedule",
+        ] {
+            old["settings"].as_object_mut().unwrap().remove(key);
+        }
+        for key in [
+            "automation",
+            "scheduleFolder",
+            "networkMonitor",
+            "networkHistory",
+            "quarantine",
+            "killSwitch",
+        ] {
+            old.as_object_mut().unwrap().remove(key);
+        }
+        let updated = parse(&old.to_string()).unwrap();
+        assert_eq!(updated["history"][0]["id"], "keep");
+        assert_eq!(updated["settings"]["autoDefinitions"], false);
+        assert_eq!(updated["settings"]["schedule"]["enabled"], false);
+        assert!(updated["quarantine"].is_array());
     }
 }
 
