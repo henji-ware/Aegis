@@ -508,5 +508,6 @@
   "Consultar IP público no ipify?": "ipify से सार्वजनिक IP जाँचें?",
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify को आपका IP मिलेगा। फ़ाइलें, कनेक्शन सूचियाँ और कुंजियाँ नहीं भेजी जाएँगी।",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Aegis बंद करने या VPN हटाने के बाद भी अवरोध रहता है। नेटवर्क लौटाने के लिए इसे यहाँ बंद करें।",
-  "IPv6": "IPv6"
+  "IPv6": "IPv6",
+  "Os detalhes disponíveis estão nos registros da operação.": "उपलब्ध विवरण कार्रवाई के लॉग में दिखाए जाते हैं।"
 }

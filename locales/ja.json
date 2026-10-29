@@ -508,5 +508,6 @@
   "Consultar IP público no ipify?": "ipify で公開 IP を確認しますか？",
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify に IP が送信されます。ファイル・接続一覧・鍵は送信しません。",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Aegis を閉じたり VPN を切断しても遮断は継続します。ネットワークを戻すにはここで無効にしてください。",
-  "IPv6": "IPv6"
+  "IPv6": "IPv6",
+  "Os detalhes disponíveis estão nos registros da operação.": "利用できる詳細は操作ログに表示されます。"
 }

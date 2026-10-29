@@ -508,5 +508,6 @@
   "Consultar IP público no ipify?": "Öffentliche IP mit ipify abfragen?",
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify erhält Ihre IP. Dateien, Verbindungslisten und Schlüssel werden nicht gesendet.",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "Die Sperre bleibt nach dem Schließen von Aegis oder Trennen des VPN aktiv. Hier deaktivieren, um das Netzwerk freizugeben.",
-  "IPv6": "IPv6"
+  "IPv6": "IPv6",
+  "Os detalhes disponíveis estão nos registros da operação.": "Verfügbare Details stehen in den Vorgangsprotokollen."
 }

@@ -329,6 +329,9 @@ fn start_inner(
             },
         )?;
         if prepared.files.is_empty() {
+            if let Ok(mut job) = core.job.lock() {
+                job["summary"] = json!({"scanned":0,"infected":0,"errors":prepared.error_count,"partial":true,"limited":prepared.limited,"issues":prepared.errors,"threats":[]});
+            }
             return Err("scan-no-readable-files".into());
         }
         let marker = args

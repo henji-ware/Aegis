@@ -508,5 +508,6 @@
   "Consultar IP público no ipify?": "通过 ipify 查询公网 IP？",
   "O ipify receberá seu IP. Arquivos, conexões e chaves não serão enviados.": "ipify 会收到您的 IP，不会发送文件、连接列表或密钥。",
   "O bloqueio permanece ao fechar o Aegis ou desconectar a VPN. Desative-o aqui para liberar a rede.": "关闭 Aegis 或断开 VPN 后仍会阻止流量，请在此关闭阻止以恢复网络。",
-  "IPv6": "IPv6"
+  "IPv6": "IPv6",
+  "Os detalhes disponíveis estão nos registros da operação.": "操作日志中显示可用的详细信息。"
 }

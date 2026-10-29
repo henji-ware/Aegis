@@ -167,7 +167,7 @@ await page.evaluate(() => window.__aegisTest.failUpdates());
         await page.reload();
         await page.getByRole('heading', { name: 'Übersicht', exact: true }).waitFor();
         assert.deepEqual(errors, []);
-        console.log('PASS: inventory progress and file-level issues, nonduplicated warnings, quarantine/restore, schedule persistence, signed-update UI, explicit public-IP request, clean sidebar, real graph, 1080/1440 layouts, settings-only language switching, 10 locales × 8 screens, singular diagnostic messages, localized running definition updates and native completion events, unconfirmed VPN overview state, diagnostic/legacy history/connection details, errors, RTL, no overflow, constellation, parallax, reduced motion, WebGL fallback and persisted settings. UI uses mocked native transport; no OS settings changed.');
+        console.log('PASS: inventory progress and file-level issues, nonduplicated warnings, quarantine/restore, schedule persistence, signed-update UI, explicit public-IP request, clean sidebar, real graph, 1080/1440 layouts, settings-only language switching, 10 locales × 8 screens, singular diagnostic messages, localized running definition updates and native completion events, unconfirmed VPN overview state, diagnostic/legacy history/connection details, errors, RTL, no overflow, connection graph, parallax, reduced motion, WebGL fallback and persisted settings. UI uses mocked native transport; no OS settings changed.');
     }
     finally {
         if (browser)

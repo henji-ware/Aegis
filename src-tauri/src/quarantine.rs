@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Read,
     path::{Path, PathBuf},
 };
 const HEADER: &[u8] = b"AEGIS-QUARANTINE-1\n";
@@ -340,6 +340,7 @@ pub fn restore(core: &Core, id: &str) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
     #[test]
     fn rejects_unowned_paths_and_symlinks() {
         let root = tempfile::tempdir().unwrap();
