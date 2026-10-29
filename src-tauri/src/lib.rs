@@ -129,6 +129,11 @@ fn dispatch(core: &Core, app: &tauri::AppHandle, method: &str, payload: Value) -
             for (k, v) in payload.as_object().unwrap() {
                 s.data["settings"][k] = v.clone();
             }
+            // A newly saved schedule starts now; earlier occurrences were not missed tasks.
+            if payload.get("schedule").is_some() {
+                s.data["automation"]["scanAttempt"] = json!(store::now());
+                s.data["automation"]["scanRetryAt"] = Value::Null;
+            }
             s.save()?;
             let settings = s.data["settings"].clone();
             drop(s);

@@ -214,6 +214,9 @@ pub fn nft_rules(id: &str, interface: &str, endpoints: &[(IpAddr, u16)]) -> Resu
     }
     let table = format!("aegis_{}", uuid::Uuid::parse_str(id).unwrap().simple());
     let mut rules=format!("table inet {table} {{\n comment \"Aegis {id}\"\n chain output {{ type filter hook output priority 0; policy accept;\n oifname \"lo\" accept\n oifname \"{interface}\" accept\n");
+    // Preserve only the OS control traffic needed to maintain the underlay.
+    // Application traffic still has to use the owned tunnel or its UDP endpoint.
+    rules.push_str(" udp sport 68 udp dport 67 accept\n ip6 nexthdr udp udp sport 546 udp dport 547 accept\n meta l4proto ipv6-icmp ip6 hoplimit 255 icmpv6 type { nd-router-solicit, nd-neighbor-solicit, nd-neighbor-advert } accept\n");
     for (ip, port) in endpoints {
         if *port == 0 {
             return Err("invalid-vpn-profile".into());
@@ -349,7 +352,10 @@ mod tests {
             let rules = nft_rules(
                 "00000000-0000-4000-8000-000000000001",
                 "ag1234567890",
-                &[("192.0.2.1".parse().unwrap(), 51821)],
+                &[
+                    ("192.0.2.1".parse().unwrap(), 51821),
+                    ("fd00:ae::1".parse().unwrap(), 51821),
+                ],
             )
             .unwrap();
             fs::write(folder.join("kill-switch-fixture.nft"), rules).unwrap();

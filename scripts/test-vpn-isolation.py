@@ -1,5 +1,5 @@
 """Exercise WireGuard and Aegis nftables in disposable, disconnected CI namespaces."""
-import os, sys, subprocess, pathlib, tempfile, socket, time
+import os, sys, subprocess, pathlib, tempfile, socket, time, select
 
 if sys.platform != 'linux' or os.environ.get('CI') != 'true' or os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('VPN isolation tests require the dedicated Linux CI namespace.')
@@ -44,18 +44,26 @@ try:
         other(wg,'set','wg-peer','private-key',str(key_b),'listen-port','51821','peer',pub_a,'allowed-ips','10.20.0.2/32','endpoint','192.0.2.2:51820')
         run(ip,'addr','add','10.20.0.2/24','dev','ag1234567890');other(ip,'addr','add','10.20.0.1/24','dev','wg-peer')
         run(ip,'link','set','ag1234567890','up');other(ip,'link','set','wg-peer','up')
-        code='''import socket,selectors
+        code='''import socket,selectors,time,errno
 s=selectors.DefaultSelector()
 for family,address in [(socket.AF_INET,'192.0.2.1'),(socket.AF_INET,'10.20.0.1'),(socket.AF_INET6,'fd00:ae::1')]:
- q=socket.socket(family,socket.SOCK_DGRAM);q.bind((address,9999));s.register(q,selectors.EVENT_READ)
+ q=socket.socket(family,socket.SOCK_DGRAM);deadline=time.monotonic()+10
+ while True:
+  try:q.bind((address,9999));break
+  except OSError as error:
+   if error.errno!=errno.EADDRNOTAVAIL or time.monotonic()>=deadline:raise
+   time.sleep(.1)
+ s.register(q,selectors.EVENT_READ)
+print('READY',flush=True)
 while True:
  for key,_ in s.select():
   data,address=key.fileobj.recvfrom(4096);key.fileobj.sendto(data,address)
 '''
-        time.sleep(1.2)
-        server=subprocess.Popen(['/usr/bin/nsenter','-t',str(peer.pid),'-n',sys.executable,'-u','-c',code],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-        time.sleep(.5)
-        if server.poll() is not None: raise RuntimeError('Test echo service failed')
+        server=subprocess.Popen(['/usr/bin/nsenter','-t',str(peer.pid),'-n',sys.executable,'-u','-c',code],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        ready,_,_=select.select([server.stdout],[],[],15)
+        if not ready or server.stdout.readline().strip()!='READY':
+            server.terminate();_,detail=server.communicate(timeout=5)
+            raise RuntimeError('Test echo service was not ready: '+(detail.strip() or 'startup timed out'))
         def echo(address,allowed):
             family=socket.AF_INET6 if ':' in address else socket.AF_INET
             with socket.socket(family,socket.SOCK_DGRAM) as sock:
@@ -64,11 +72,16 @@ while True:
                     sock.sendto(b'aegis-isolation-fixture',(address,9999));data,_=sock.recvfrom(4096);success=data==b'aegis-isolation-fixture'
                 except (OSError,TimeoutError): success=False
             if success != allowed: raise AssertionError(f'Unexpected traffic result for {address}: allowed={success}')
-        echo('192.0.2.1',True); echo('10.20.0.1',True)
+        echo('192.0.2.1',True); echo('10.20.0.1',True);echo('fd00:ae::1',True)
         run(nft,'-c','-f',str(fixture));run(nft,'-f',str(fixture))
         echo('10.20.0.1',True);echo('192.0.2.1',False);echo('fd00:ae::1',False)
-        run(ip,'link','set','ag1234567890','down');echo('192.0.2.1',False)
-        run(nft,'delete','table','inet','aegis_00000000000040008000000000000001');echo('192.0.2.1',True)
+        # Keep an IPv6 WireGuard endpoint usable after neighbor cache expiry, while
+        # still rejecting application data outside the tunnel.
+        run(wg,'set','ag1234567890','peer',pub_b,'endpoint','[fd00:ae::1]:51821')
+        run(ip,'-6','neigh','flush','dev','physical0')
+        echo('10.20.0.1',True);echo('fd00:ae::1',False)
+        run(ip,'link','set','ag1234567890','down');echo('192.0.2.1',False);echo('fd00:ae::1',False)
+        run(nft,'delete','table','inet','aegis_00000000000040008000000000000001');echo('192.0.2.1',True);echo('fd00:ae::1',True)
         print('PASS: real WireGuard traffic works; non-tunnel IPv4/IPv6 is blocked, remains blocked after tunnel loss, and recovers after removing only the owned table.')
 finally:
     if server is not None: server.terminate(); server.wait(timeout=5)

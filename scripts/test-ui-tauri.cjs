@@ -30,7 +30,7 @@ const emit=data=>{for(const callback of subscribers)callback({type:'antivirus',d
             const av = { engine: 'ClamAV', installed: true, updaterAvailable: true, version: 'ClamAV 1.5.4', runnable: true, signatures: { ready: true, updatedAt: new Date().toISOString(), count: 9000000, files: [] }, job: { id: 's', type: 'quick', state: 'completed', startedAt: new Date().toISOString(), lines: [], summary: { scanned: 40, infected: 0, errors: 0, limited: false, threats: [] } }, scans: [], realtime: false };
             const vpn = { installed: true, secureStorage: true, profiles: [{ id: 'p', name: 'Local VPN', meta: { endpoint: 'vpn.example:51820', addresses: [], fullTunnel: true, ipv6: false, dns: ['1.1.1.1'] } }], active: null, verification: 'A interface ativa não confirma handshake recente, rotas, DNS ou ausência de vazamentos.' };
             window.__aegisTest = { partialScan:()=>{av.job={id:'partial-fixture',type:'quick',state:'partial',startedAt:new Date().toISOString(),lines:['Original engine evidence'],progress:{phase:'scan',processed:25,total:28,percent:89,current:'C:/fixture/locked.txt'},summary:{scanned:25,infected:0,errors:3,limited:false,partial:true,threats:[],issues:[{path:'C:/fixture/locked.txt',kind:'permission',detail:'Permission denied'},{path:'C:/fixture/gone.txt',kind:'missing',detail:'No such file'}]}};emit(av.job);},
-detectedScan:()=>{av.job={id:'detected-fixture',type:'custom',state:'threats',startedAt:new Date().toISOString(),lines:[],progress:{phase:'scan',processed:1,total:1,percent:100},summary:{scanned:1,infected:1,errors:0,limited:false,partial:false,threats:[{path:'C:/fixture/test.txt',name:'Local.Test.Signature'}]}};emit(av.job);},getSettings:()=>settings,didInstall:()=>didInstall,
+seedQuarantine:()=>{isolated.splice(0,isolated.length,...Array.from({length:36},(_,i)=>({id:'q-'+i,name:'sample-'+i+'.txt',original:'C:/fixture/sample-'+i+'.txt',detection:'Local.Test.Signature',state:'isolated',at:new Date().toISOString()})));},detectedScan:()=>{av.job={id:'detected-fixture',type:'custom',state:'threats',startedAt:new Date().toISOString(),lines:[],progress:{phase:'scan',processed:1,total:1,percent:100},summary:{scanned:1,infected:1,errors:0,limited:false,partial:false,threats:[{path:'C:/fixture/test.txt',name:'Local.Test.Signature'}]}};emit(av.job);},getSettings:()=>settings,didInstall:()=>didInstall,
 finishUpdate: () => { av.job = { ...av.job, state: 'completed' }; for (const callback of subscribers)
                     callback({ type: 'antivirus', data: av.job }); }, failUpdates: () => { failUpdates = true; }, setUnconfirmedVpn: () => { vpn.active = { id: 'p', name: 'Local VPN', tunnel: 'aegis-test', interfaceActive: null, present: null, pending: true }; } };
             window.aegis = { call: async (method, payload) => { switch (method) {
@@ -44,9 +44,9 @@ finishUpdate: () => { av.job = { ...av.job, state: 'completed' }; for (const cal
 case 'startup:set':return{enabled:payload.enabled};
 case 'automation:status':return{settings,state:{},folder:null,monitor:{checkedAt:new Date().toISOString()},events:[]};
 case 'automation:folder':return{settings,state:{},folder:'C:/fixture'};
-case 'quarantine:list':return isolated;
-case 'quarantine:add':isolated.push({id:'isolated-fixture',name:'test.txt',original:'C:/fixture/test.txt',detection:'Local.Test.Signature',state:'isolated',at:new Date().toISOString()});return isolated;
-case 'quarantine:restore':isolated[0].state='restored';return isolated;
+case 'quarantine:list':return structuredClone(isolated);
+case 'quarantine:add':isolated.push({id:'isolated-fixture',name:'test.txt',original:'C:/fixture/test.txt',detection:'Local.Test.Signature',state:'isolated',at:new Date().toISOString()});return structuredClone(isolated);
+case 'quarantine:restore':isolated.find(item=>item.id===payload.id).state='restored';return structuredClone(isolated);
 case 'update:check':return{available:true,version:'1.0.1'};
 case 'update:install':didInstall=true;return true;
 case 'vpn:diagnose':return{checks:{tunnel:'pass',route:'pass',dns:'unknown'},evidence:{source:'fixture'},killSwitch:{supported:false,configured:false}};
@@ -82,6 +82,7 @@ case 'av:status': return av;
             assert.equal(await page.locator('html').getAttribute('dir'), locale === 'ar' ? 'rtl' : 'ltr');
             await page.locator('nav[aria-label]>button').first().click();
             assert.equal(await page.locator('.hero-caption>p').innerText(), tr('{count} verificação ainda precisa de confirmação.', locale).replace('{count}', '1'));
+            const graphColumns=await page.locator('.hero-stage .graph-head>span').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().x));assert.ok(graphColumns[0]<graphColumns[1],'application heading must stay over the process nodes, including RTL locales');
             for (let i = 0; i < sources.length; i++) {
                 await page.locator('nav[aria-label]>button').nth(i).click();
                 assert.equal(await page.locator('h1').innerText(), tr(sources[i], locale));
@@ -151,6 +152,7 @@ assert.equal(await page.locator('.scan-explanation').count(),1,'partial warning 
 assert.ok((await page.locator('.scan-issues').innerText()).includes('Read permission denied'));
 await page.screenshot({path:path.join(shots,'scan-errors-en.png'),fullPage:true});
 await page.evaluate(()=>window.__aegisTest.detectedScan());await page.getByRole('button',{name:'Isolate file',exact:true}).click();await page.getByRole('button',{name:'Restore file',exact:true}).click();await page.locator('.quarantine-row small').filter({hasText:'Restored'}).waitFor();
+await page.evaluate(()=>window.__aegisTest.seedQuarantine());await page.locator('.feature-panel').filter({has:page.getByRole('heading',{name:'Quarantine',exact:true})}).getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('.quarantine-row').filter({hasText:'sample-35.txt'}).getByRole('button',{name:'Restore file',exact:true}).click();await page.locator('.quarantine-row').filter({hasText:'sample-35.txt'}).locator('small').filter({hasText:'Restored'}).waitFor();
 await page.locator('.sidebar-bottom>button').click();await page.getByRole('checkbox',{name:'Schedule a scan',exact:true}).check();await page.locator('input[type="time"]').fill('23:42');
 await page.getByRole('checkbox',{name:/Start with the system/}).check();
 await page.locator('.feature-fields select').first().selectOption('weekly');await page.locator('.feature-fields select').nth(1).selectOption('5');
