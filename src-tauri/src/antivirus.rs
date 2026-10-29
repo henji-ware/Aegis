@@ -101,6 +101,7 @@ pub struct ScanOutput {
     pub threats: Vec<Value>,
     pub detected: u64,
     pub partial: bool,
+    pub issues: Vec<Value>,
 }
 impl ScanOutput {
     pub fn accept(&mut self, line: &str) {
@@ -127,6 +128,18 @@ impl ScanOutput {
         {
             self.partial = true;
         }
+        if (line.ends_with(" ERROR")
+            || line.starts_with("ERROR:")
+            || line.contains("Permission denied")
+            || line.contains("Access is denied"))
+            && self.issues.len() < 200
+        {
+            let (path, detail) = line.rsplit_once(": ").unwrap_or(("", line));
+            let item = crate::scan_plan::issue(path, detail);
+            if !self.issues.contains(&item) {
+                self.issues.push(item);
+            }
+        }
         if let Some(found) = line.strip_suffix(" FOUND") {
             if let Some((file, name)) = found.rsplit_once(": ") {
                 self.detected += 1;
@@ -149,7 +162,7 @@ impl ScanOutput {
         let limited = self.tail.contains("Limits.Exceeded") || self.tail.contains("limit reached");
         let partial =
             self.partial || limited || errors > 0 || code != 0 && code != 1 || scanned.is_none();
-        json!({"scanned":scanned,"infected":infected,"errors":errors,"limited":limited,"partial":partial,"threats":self.threats,"threatsTruncated":infected>self.threats.len() as u64,"state":if infected>0{"threats"}else if code==0&&!partial{"completed"}else{"error"}})
+        json!({"scanned":scanned,"infected":infected,"errors":errors,"limited":limited,"partial":partial,"issues":self.issues,"exitCode":code,"threats":self.threats,"threatsTruncated":infected>self.threats.len() as u64,"state":if infected>0{"threats"}else if code==0&&!partial{"completed"}else{"error"}})
     }
 }
 fn reserve(core: &Core) -> Result<()> {
@@ -182,6 +195,21 @@ pub fn start(
     let started = start_inner(core, app, kind, selected);
     if started.is_err() {
         core.scan_busy.store(false, Ordering::SeqCst);
+        if let Ok(mut job) = core.job.lock() {
+            if job["state"] == "preparing" {
+                job["state"] = json!(if core.scan_cancel.load(Ordering::SeqCst) {
+                    "cancelled"
+                } else {
+                    "error"
+                });
+                job["error"] = json!(started.as_ref().err());
+                job["endedAt"] = json!(store::now());
+                let _ = app.emit(
+                    "aegis:event",
+                    json!({"type":"antivirus","data":job.clone()}),
+                );
+            }
+        }
     }
     started
 }
@@ -193,7 +221,7 @@ fn start_inner(
 ) -> Result<Value> {
     let db = core.dir.join("signatures");
     store::private_dir(&db)?;
-    let (binary, args, targets) = if kind == "update" {
+    let (binary, mut args, targets) = if kind == "update" {
         let binary =
             engine(&core.resources, "clamav", "freshclam").ok_or("freshclam-unavailable")?;
         let config = core.dir.join("freshclam.conf");
@@ -248,7 +276,7 @@ fn start_inner(
         let mut args = vec![
             format!("--database={}", db.display()),
             "--recursive".into(),
-            "--infected".into(),
+            "--verbose".into(),
             "--stdout".into(),
             "--allmatch".into(),
             "--cross-fs=no".into(),
@@ -266,6 +294,37 @@ fn start_inner(
         args.extend(targets.iter().map(|p| p.to_string_lossy().into_owned()));
         (binary, args, targets)
     };
+    let task_id = store::id();
+    let mut plan = None;
+    if kind != "update" {
+        let preparing = json!({"id":task_id,"type":kind,"state":"preparing","startedAt":store::now(),"targets":targets,"lines":[],"progress":{"phase":"inventory","discovered":0,"processed":0,"total":null,"percent":null}});
+        *core.job.lock().map_err(|_| "job-lock")? = preparing;
+        let prepared = crate::scan_plan::build(
+            &targets,
+            &crate::scan_plan::excluded(&core.dir),
+            core.dir.join(format!("scan-{task_id}.list")),
+            &core.scan_cancel,
+            |count| {
+                if let Ok(mut job) = core.job.lock() {
+                    job["progress"]["discovered"] = json!(count);
+                    let _ = app.emit(
+                        "aegis:event",
+                        json!({"type":"antivirus","data":job.clone()}),
+                    );
+                }
+            },
+        )?;
+        if prepared.files.is_empty() {
+            return Err("scan-no-readable-files".into());
+        }
+        let marker = args
+            .iter()
+            .position(|a| a == "--")
+            .ok_or("invalid-scan-type")?;
+        args.truncate(marker);
+        args.push(format!("--file-list={}", prepared.path.display()));
+        plan = Some(prepared);
+    }
     let mut cmd = command(&binary, &args);
     cmd.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -280,7 +339,7 @@ fn start_inner(
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
     let stdout = child.stdout.take().ok_or("missing-process-output")?;
     let stderr = child.stderr.take().ok_or("missing-process-output")?;
-    let job = json!({"id":store::id(),"type":kind,"state":"running","startedAt":store::now(),"targets":targets,"lines":[]});
+    let job = json!({"id":task_id,"type":kind,"state":"running","startedAt":store::now(),"targets":targets,"lines":[],"progress":{"phase":if kind=="update"{"download"}else{"scan"},"processed":0,"total":plan.as_ref().map(|p|p.files.len()),"percent":if kind=="update"{Value::Null}else{json!(0)},"current":null}});
     *core.job.lock().map_err(|_| "job-lock")? = job.clone();
     *slot = Some(child);
     drop(slot);
@@ -324,12 +383,34 @@ fn start_inner(
     let _ = app.emit("aegis:event", json!({"type":"antivirus","data":job}));
     thread::spawn(move || {
         let mut output = ScanOutput::default();
+        let mut processed = HashSet::new();
+        let mut tracker = |line: &str, job: &mut Value| {
+            if let Some(plan) = &plan {
+                if let Some(file) = line.strip_prefix("Scanning ") {
+                    if plan.files.contains(&crate::scan_plan::identity(file)) {
+                        job["progress"]["current"] = json!(file);
+                    }
+                }
+                if let Some((file, detail)) = line.rsplit_once(": ") {
+                    if detail == "OK" || detail.ends_with(" FOUND") || detail.ends_with(" ERROR") {
+                        let key = crate::scan_plan::identity(file);
+                        if plan.files.contains(&key) {
+                            processed.insert(key);
+                            job["progress"]["processed"] = json!(processed.len());
+                            job["progress"]["percent"] =
+                                json!((processed.len() * 100 / plan.files.len()).min(100));
+                        }
+                    }
+                }
+            }
+        };
         let mut exit = None;
         let mut checkpoint = std::time::Instant::now();
         loop {
             drain_output_batch(&rx, &state.scan_cancel, |line| {
                 output.accept(line);
                 if let Ok(mut job) = state.job.lock() {
+                    tracker(line, &mut job);
                     let lines = job["lines"].as_array_mut().unwrap();
                     lines.push(json!(line.chars().take(1500).collect::<String>()));
                     if lines.len() > 120 {
@@ -387,6 +468,7 @@ fn start_inner(
         for line in rx {
             output.accept(&line);
             if let Ok(mut job) = state.job.lock() {
+                tracker(&line, &mut job);
                 let lines = job["lines"].as_array_mut().unwrap();
                 lines.push(json!(line.chars().take(1500).collect::<String>()));
                 if lines.len() > 120 {
@@ -402,6 +484,24 @@ fn start_inner(
             job["endedAt"] = json!(store::now());
             if task_type != "update" {
                 job["summary"] = output.result(exit.unwrap_or(-1));
+                if let Some(plan) = &plan {
+                    job["summary"]["skipped"] = json!(plan.skipped);
+                    if !plan.errors.is_empty()
+                        || plan.limited
+                        || processed.len() != plan.files.len()
+                    {
+                        job["summary"]["partial"] = json!(true);
+                    }
+                    job["summary"]["limited"] =
+                        json!(plan.limited || job["summary"]["limited"] == true);
+                    if let Some(issues) = job["summary"]["issues"].as_array_mut() {
+                        issues.extend(plan.errors.iter().cloned());
+                        issues.truncate(200);
+                    }
+                    if exit == Some(0) && processed.len() == plan.files.len() {
+                        job["progress"]["percent"] = json!(100);
+                    }
+                }
                 if cancelled {
                     job["summary"]["partial"] = json!(true);
                 }
@@ -410,6 +510,9 @@ fn start_inner(
                 } else {
                     job["summary"]["state"].clone()
                 };
+                if job["state"] == "completed" && job["summary"]["partial"] == true {
+                    job["state"] = json!("partial");
+                }
             } else {
                 job["state"] = json!(if cancelled {
                     "cancelled"
@@ -420,7 +523,29 @@ fn start_inner(
                 });
             }
             if job["state"] == "error" {
-                job["error"] = json!("scan-incomplete");
+                let lower = output.tail.to_lowercase();
+                let cause = if lower.contains("429")
+                    || lower.contains("cool-down")
+                    || lower.contains("cooldown")
+                {
+                    "rate-limit"
+                } else if lower.contains("403") {
+                    "download-denied"
+                } else if lower.contains("certificate") || lower.contains("ssl") {
+                    "certificate"
+                } else if lower.contains("resolve")
+                    || lower.contains("connect")
+                    || lower.contains("timeout")
+                {
+                    "network"
+                } else if lower.contains("database") {
+                    "database"
+                } else if !output.issues.is_empty() {
+                    "read"
+                } else {
+                    "engine"
+                };
+                job["failure"] = json!({"cause":cause,"exitCode":exit,"detail":output.tail.lines().filter(|l|!l.trim().is_empty()).rev().take(12).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")});
             }
             job.as_object_mut().unwrap().remove("persistenceError");
             if let Ok(mut store) = state.store.lock() {

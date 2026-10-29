@@ -1,0 +1,221 @@
+use crate::store::{self, Result};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashSet,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
+    time::Instant,
+};
+
+pub fn identity(path: &str) -> [u8; 32] {
+    let value = if cfg!(windows) {
+        path.trim_start_matches(r"\\?\")
+            .replace('/', "\\")
+            .to_lowercase()
+    } else {
+        path.to_string()
+    };
+    Sha256::digest(value.as_bytes()).into()
+}
+pub fn issue(path: &str, detail: &str) -> Value {
+    let lower = detail.to_lowercase();
+    let kind =
+        if lower.contains("permission") || lower.contains("access") || lower.contains("denied") {
+            "permission"
+        } else if lower.contains("not found")
+            || lower.contains("no such")
+            || lower.contains("cannot find")
+        {
+            "missing"
+        } else if lower.contains("limit") || lower.contains("too large") {
+            "limit"
+        } else if lower.contains("encrypted") || lower.contains("password") {
+            "encrypted"
+        } else if lower.contains("database") || lower.contains("signature") {
+            "database"
+        } else {
+            "read"
+        };
+    json!({"path":path,"kind":kind,"detail":detail.chars().take(1500).collect::<String>()})
+}
+pub struct Plan {
+    pub path: PathBuf,
+    pub files: HashSet<[u8; 32]>,
+    pub errors: Vec<Value>,
+    pub skipped: u64,
+    pub limited: bool,
+}
+impl Drop for Plan {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+pub fn build(
+    targets: &[PathBuf],
+    excluded: &[PathBuf],
+    path: PathBuf,
+    cancel: &AtomicBool,
+    mut progress: impl FnMut(usize),
+) -> Result<Plan> {
+    let mut plan = Plan {
+        path,
+        files: HashSet::new(),
+        errors: vec![],
+        skipped: 0,
+        limited: false,
+    };
+    store::write_private(&plan.path, b"", true)?;
+    let mut out = fs::OpenOptions::new()
+        .append(true)
+        .open(&plan.path)
+        .map_err(|e| e.to_string())?;
+    let mut stack = targets.to_vec();
+    let mut dirs = HashSet::new();
+    let mut tick = Instant::now();
+    let mut bytes = 0;
+    while let Some(file) = stack.pop() {
+        if cancel.load(Ordering::SeqCst) {
+            return Err("cancelled".into());
+        }
+        if excluded.iter().any(|p| file.starts_with(p)) {
+            plan.skipped += 1;
+            continue;
+        }
+        let meta = match fs::symlink_metadata(&file) {
+            Ok(m) => m,
+            Err(e) => {
+                if plan.errors.len() < 200 {
+                    plan.errors
+                        .push(issue(&file.to_string_lossy(), &e.to_string()));
+                }
+                plan.skipped += 1;
+                continue;
+            }
+        };
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if meta.file_attributes() & 0x400 != 0 {
+                plan.skipped += 1;
+                continue;
+            }
+        }
+        if meta.file_type().is_symlink() {
+            plan.skipped += 1;
+            continue;
+        }
+        if meta.is_dir() {
+            let canonical = file.canonicalize().map_err(|e| e.to_string())?;
+            if !dirs.insert(canonical) {
+                continue;
+            }
+            match fs::read_dir(&file) {
+                Ok(entries) => {
+                    for entry in entries {
+                        match entry {
+                            Ok(e) => stack.push(e.path()),
+                            Err(e) => {
+                                plan.skipped += 1;
+                                if plan.errors.len() < 200 {
+                                    plan.errors
+                                        .push(issue(&file.to_string_lossy(), &e.to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    plan.skipped += 1;
+                    if plan.errors.len() < 200 {
+                        plan.errors
+                            .push(issue(&file.to_string_lossy(), &e.to_string()));
+                    }
+                }
+            }
+        } else if meta.is_file() {
+            let text = file.to_str().filter(|s| !s.contains(['\n', '\r']));
+            if let Some(text) = text {
+                if !plan.files.insert(identity(text)) {
+                    continue;
+                }
+                bytes += text.len() + 1;
+                if bytes > 128 * 1024 * 1024 || plan.files.len() > 1_000_000 {
+                    plan.files.remove(&identity(text));
+                    plan.limited = true;
+                    break;
+                }
+                writeln!(out, "{text}").map_err(|e| e.to_string())?;
+            } else {
+                plan.skipped += 1;
+                if plan.errors.len() < 200 {
+                    plan.errors
+                        .push(issue(&file.to_string_lossy(), "Unsupported file-list name"));
+                }
+            }
+        } else {
+            plan.skipped += 1;
+        }
+        if tick.elapsed().as_millis() > 250 {
+            progress(plan.files.len());
+            tick = Instant::now();
+        }
+    }
+    out.sync_all().map_err(|e| e.to_string())?;
+    progress(plan.files.len());
+    Ok(plan)
+}
+pub fn excluded(data: &Path) -> Vec<PathBuf> {
+    let mut paths = vec![data.to_path_buf()];
+    if cfg!(unix) {
+        paths.extend(["/proc", "/sys", "/dev"].map(PathBuf::from));
+    }
+    paths
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn inventory_excludes_symlinks_and_private_state_and_deduplicates() {
+        let root = tempfile::tempdir().unwrap();
+        let data = root.path().join("data");
+        fs::create_dir(&data).unwrap();
+        fs::write(data.join("keep"), "private").unwrap();
+        fs::write(root.path().join("sample"), "benign").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(root.path(), root.path().join("loop")).unwrap();
+        let plan = build(
+            &[root.path().into(), root.path().join("sample")],
+            &[data.clone()],
+            data.join("list"),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(plan.files.len(), 1);
+        assert!(plan
+            .files
+            .contains(&identity(&root.path().join("sample").to_string_lossy())));
+    }
+    #[test]
+    fn cancelled_inventory_removes_manifest() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("list");
+        assert!(build(
+            &[root.path().into()],
+            &[],
+            file.clone(),
+            &AtomicBool::new(true),
+            |_| {}
+        )
+        .is_err());
+        assert!(!file.exists());
+    }
+    #[test]
+    fn errors_have_actionable_categories() {
+        assert_eq!(issue("file", "Permission denied")["kind"], "permission");
+        assert_eq!(issue("file", "No such file")["kind"], "missing");
+    }
+}
