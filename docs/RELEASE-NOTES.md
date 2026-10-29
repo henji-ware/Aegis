@@ -1,29 +1,28 @@
-# Aegis 0.4.1
+# Aegis 1.0.0
 
-The first standard release on the stable channel uses Tauri 2 and Rust, with a React, TypeScript and Three.js interface. It is published as a normal GitHub release and selected as the latest release after all release checks succeed.
+- Reorganized black overview with dark green details, meaningful process-to-socket 3D relationships, pointer parallax, reduced motion and a readable WebGL fallback.
+- Larger, sharper cube icon for the Windows Start menu and application packages. Logo-only sidebar; no storage/version footer, external firewall promotions or components panel.
+- Ten bundled interface languages. Language selection remains in Preferences; original operating-system and engine evidence stays available separately.
+- Independent ClamAV scans with file inventory, real processed/total percentage, current path, per-file causes and one partial-result explanation. Preparation remains indeterminate until the file list is known.
+- Explicit quarantine with detection recheck, SHA-256 verification, recoverable journal state and restoration that refuses an existing destination.
+- Daily/weekly schedules, selected weekday, missed-task recovery, opt-in definition checks every four hours, startup and background tray mode. Aegis must be running for these tasks.
+- Opt-in connection change history and in-app alerts for new non-loopback listening services. Signals support review and do not establish maliciousness.
+- Local VPN interface, route and DNS evidence, optional authorized public-IP lookup, and explicit reversible Linux nftables blocking outside an active owned single-peer WireGuard tunnel.
+- Version-bound signed in-app updates on supported Windows installers, AppImage and macOS app builds. DEB/RPM and portable Windows builds use manual updates.
+- Windows no-install ZIP, NSIS EXE and MSI; Linux DEB, RPM and AppImage; macOS Apple silicon DMG. Architecture is recorded in each filename.
 
-- Redesigned black overview, restrained dark green details, an orbital point network, local process selection, parallax and reduced-motion support.
-- Logo-only sidebar branding and language changes available only in Preferences.
-- Ten interface languages, including localized update progress and singular diagnostic summaries.
-- Read-only device checks, local connection inspection and on-demand ClamAV scans independent of Windows Defender.
-- Quick scans resolve the operating system's Downloads and Desktop folders, including redirected or localized locations.
-- Incomplete connection snapshots cannot produce a successful no-listeners diagnostic.
-- Invalid local state recovers from the last valid backup instead of crashing. Tor cancellation and pending firewall-rule recovery are hardened.
-- Native installation/removal tests, multilingual UI integration, Rust regression tests and dependency vulnerability checks gate publication.
-- Obsolete interface-enumeration/build dependencies were removed. Remaining upstream informational advisories are recorded in the dependency review; the release does not claim zero dependency warnings.
+## Validation
 
-## Downloads
+Publication is gated by frontend checks, ten-language UI integration, dependency audits, Rust regression tests, native engine tests, installer checks and updater signature/tamper tests. The Linux VPN test creates a real WireGuard tunnel in disposable disconnected namespaces and exercises IPv4/IPv6 blocking, tunnel loss and owned-rule removal. Consult the exact release workflow and VALIDATION.md for executed evidence and limits.
 
-Windows x64 NSIS `.exe` and `.msi`; Linux x64 `.deb`, `.rpm` and `.AppImage`; macOS Apple silicon `.dmg`. Check the architecture in each filename. The Debian package requires WebKitGTK 4.1 and the listed native dependencies. Compatibility beyond the documented CI matrix is not implied.
+## Behavior and limits
 
-## Behavior and limitations
+ClamAV definitions must be downloaded before normal malware scans. Scanning is on demand or scheduled; no continuous file interception or automatic deletion is supplied. Quarantine containers encode file bytes to prevent accidental execution; they are not encrypted storage. Definition downloads may be rate limited by the upstream service, with original errors retained.
 
-ClamAV requires signature downloads before normal malware scans. Antivirus scanning is on demand; automatic deletion, quarantine and real-time protection are not implemented. Local connection signals support review and cannot establish that a connection is safe or malicious. No external IP reputation service is queried.
+VPN servers/profiles are supplied by the user. The Linux blocking control persists after tunnel/app closure until explicitly removed. Route/DNS configuration checks and a public-IP result are not a comprehensive leak test. Tor provides a loopback SOCKS proxy that applications must choose to use. Firewall/VPN changes require native confirmation and OS authorization.
 
-Firewall and VPN changes require explicit confirmation and OS authorization. A WireGuard server/profile is supplied by the user. Tor exposes a loopback-only SOCKS proxy that applications must choose to use. No paid Aegis feature, subscription, telemetry or mandatory account is required.
-
-The stable release channel does not supply a publisher certificate: Windows installers currently have no trusted Authenticode signature, and macOS has no Apple Developer ID signature/notarization. SHA-256 checksums and GitHub artifact attestations verify integrity/build provenance, not operating-system publisher trust. Keep system protections enabled.
+Windows artifacts currently have no trusted Authenticode publisher certificate; macOS has no Apple Developer ID signature/notarization. Updater signatures, SHA-256 checksums and GitHub build attestations cover separate integrity/provenance properties and do not replace OS publisher trust. Keep system protections enabled.
 
 ## Upgrade
 
-Electron user data is preserved. Compatible history, settings and firewall recovery information can be imported; VPN secrets need to be reimported into the system credential vault. Disconnect a VPN tunnel managed by the old version before switching versions. Application data is retained during uninstall; delete it separately only if you intend to discard your history and recovery information.
+Existing Tauri settings, history and recovery information are retained. New automation controls default to off. Data remains in the user profile after uninstall. When migrating from Electron, compatible records are preserved and VPN secrets must be reimported into the OS credential vault. Disconnect a tunnel managed by the old version before switching versions.

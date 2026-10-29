@@ -46,6 +46,20 @@ fn open_regular(path: &Path) -> Result<fs::File> {
         options.custom_flags(libc::O_NOFOLLOW);
     }
     let file = options.open(path).map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Storage::FileSystem::{
+            GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+        };
+        let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle() as _, &mut info) } == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        if info.nNumberOfLinks != 1 {
+            return Err("quarantine-hard-links".into());
+        }
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -60,6 +74,12 @@ fn owned(core: &Core, id: &str, suffix: &str) -> Result<PathBuf> {
         return Err("invalid-quarantine-item".into());
     }
     Ok(core.dir.join("quarantine").join(format!("{id}.{suffix}")))
+}
+fn pending_path(original: &Path, id: &str) -> Result<PathBuf> {
+    if !original.is_absolute() || uuid::Uuid::parse_str(id).is_err() {
+        return Err("invalid-quarantine-item".into());
+    }
+    Ok(original.with_file_name(format!(".aegis-quarantine-{id}.pending")))
 }
 fn save(core: &Core, entry: &Value) -> Result<()> {
     let mut s = core.store.lock().map_err(|_| "state-lock")?;
@@ -81,16 +101,44 @@ pub fn list(core: &Core) -> Result<Value> {
     Ok(s.data["quarantine"].clone())
 }
 fn blocked(core: &Core, path: &Path) -> bool {
-    if path.starts_with(&core.dir) || path.starts_with(&core.resources) {
+    if std::env::current_exe()
+        .ok()
+        .and_then(|p| p.canonicalize().ok())
+        .is_some_and(|p| p == path)
+    {
+        return true;
+    }
+    if path.starts_with(core.dir.canonicalize().unwrap_or(core.dir.clone()))
+        || path.starts_with(
+            core.resources
+                .canonicalize()
+                .unwrap_or(core.resources.clone()),
+        )
+    {
         return true;
     }
     if cfg!(windows) {
-        std::env::var_os("SystemRoot").is_some_and(|p| path.starts_with(PathBuf::from(p)))
+        std::env::var_os("SystemRoot").is_some_and(|p| {
+            let root = PathBuf::from(p);
+            path.starts_with(root.canonicalize().unwrap_or(root))
+        })
     } else {
         ["/bin", "/sbin", "/usr", "/lib", "/etc", "/boot", "/System"]
             .iter()
             .any(|p| path.starts_with(p))
     }
+}
+pub fn pending_files(core: &Core) -> Result<Vec<PathBuf>> {
+    let s = core.store.lock().map_err(|_| "state-lock")?;
+    Ok(s.data["quarantine"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|item| item["state"] == "pending")
+        .filter_map(|item| {
+            pending_path(Path::new(item["original"].as_str()?), item["id"].as_str()?).ok()
+        })
+        .collect())
 }
 pub fn isolate(core: &Core, scan: &str, index: usize) -> Result<Value> {
     if core.scan_busy.load(std::sync::atomic::Ordering::SeqCst) {
@@ -109,7 +157,11 @@ pub fn isolate(core: &Core, scan: &str, index: usize) -> Result<Value> {
     let original = PathBuf::from(threat["path"].as_str().ok_or("invalid-quarantine-item")?);
     open_regular(&original)?;
     let original = original.canonicalize().map_err(|e| e.to_string())?;
-    if blocked(core, &original) {
+    if blocked(core, &original)
+        || pending_files(core)?
+            .iter()
+            .any(|p| p.canonicalize().is_ok_and(|p| p == original))
+    {
         return Err("quarantine-protected-file".into());
     }
     // Recheck the selected detection with the current definitions before moving it.
@@ -138,7 +190,7 @@ pub fn isolate(core: &Core, scan: &str, index: usize) -> Result<Value> {
     let id = store::id();
     let directory = core.dir.join("quarantine");
     store::private_dir(&directory)?;
-    let pending = owned(core, &id, "pending")?;
+    let pending = pending_path(&original, &id)?;
     let container = owned(core, &id, "aegis")?;
     let permissions = fs::metadata(&original)
         .map_err(|e| e.to_string())?
@@ -152,7 +204,12 @@ pub fn isolate(core: &Core, scan: &str, index: usize) -> Result<Value> {
     let mode = if permissions.readonly() { 1 } else { 0 };
     let mut entry = json!({"id":id,"at":store::now(),"original":original,"name":original.file_name().unwrap_or_default().to_string_lossy(),"detection":threat["name"],"sha256":before,"mode":mode,"state":"pending"});
     save(core, &entry)?;
-    fs::rename(&original, &pending).map_err(|e| format!("quarantine-move-failed: {e}"))?;
+    if let Err(error) = fs::rename(&original, &pending) {
+        entry["state"] = json!("failed");
+        entry["error"] = json!(error.to_string());
+        save(core, &entry)?;
+        return Err(format!("quarantine-move-failed: {error}"));
+    }
     // If the name changed during the move, retain a recoverable pending item.
     if hash(&pending)? != before {
         return Err("quarantine-file-changed".into());
@@ -196,40 +253,34 @@ pub fn restore(core: &Core, id: &str) -> Result<Value> {
     if !original.is_absolute() || blocked(core, &original) {
         return Err("quarantine-protected-file".into());
     }
+    let parent = original.parent().ok_or("invalid-quarantine-item")?;
+    if parent.canonicalize().map_err(|e| e.to_string())? != parent {
+        return Err("quarantine-parent-changed".into());
+    }
     if original.try_exists().map_err(|e| e.to_string())? {
         return Err("quarantine-restore-conflict".into());
     }
-    let pending = owned(core, id, "pending")?;
-    if pending.exists() {
-        // Restore through a new file so a concurrently created destination is never overwritten.
-        let mut input = open_regular(&pending)?;
-        store::write_private(&original, b"", true)?;
-        let result = (|| -> Result<()> {
-            let mut out = fs::OpenOptions::new()
-                .write(true)
-                .open(&original)
-                .map_err(|e| e.to_string())?;
-            std::io::copy(&mut input, &mut out).map_err(|e| e.to_string())?;
-            out.sync_all().map_err(|e| e.to_string())?;
-            Ok(())
-        })();
-        if let Err(e) = result {
-            let _ = fs::remove_file(&original);
-            return Err(e);
-        }
-    } else {
-        let mut input = fs::File::open(owned(core, id, "aegis")?).map_err(|e| e.to_string())?;
-        let mut header = vec![0; HEADER.len()];
-        input.read_exact(&mut header).map_err(|e| e.to_string())?;
-        if header != HEADER {
-            return Err("quarantine-integrity".into());
-        }
-        store::write_private(&original, b"", true)?;
-        let result = (|| -> Result<()> {
-            let mut output = fs::OpenOptions::new()
-                .write(true)
-                .open(&original)
-                .map_err(|e| e.to_string())?;
+    let pending = pending_path(&original, id)?;
+    let temporary = original.with_file_name(format!(".aegis-restore-{}.tmp", store::id()));
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut output = options.open(&temporary).map_err(|e| e.to_string())?;
+    let result = (|| -> Result<()> {
+        if pending.exists() {
+            let mut input = open_regular(&pending)?;
+            std::io::copy(&mut input, &mut output).map_err(|e| e.to_string())?;
+        } else {
+            let mut input = fs::File::open(owned(core, id, "aegis")?).map_err(|e| e.to_string())?;
+            let mut header = vec![0; HEADER.len()];
+            input.read_exact(&mut header).map_err(|e| e.to_string())?;
+            if header != HEADER {
+                return Err("quarantine-integrity".into());
+            }
             let count = std::io::copy(
                 &mut DecoderReader::new(input, &STANDARD).take(MAX + 1),
                 &mut output,
@@ -238,34 +289,51 @@ pub fn restore(core: &Core, id: &str) -> Result<Value> {
             if count > MAX {
                 return Err("quarantine-integrity".into());
             }
-            output.sync_all().map_err(|e| e.to_string())?;
-            if hash(&original)? != entry["sha256"].as_str().unwrap_or("") {
-                return Err("quarantine-integrity".into());
-            }
-            Ok(())
-        })();
-        if let Err(e) = result {
-            let _ = fs::remove_file(&original);
-            return Err(e);
         }
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(
-            &original,
-            fs::Permissions::from_mode(entry["mode"].as_u64().unwrap_or(0o600) as u32 & 0o777),
-        )
-        .map_err(|e| e.to_string())?;
+        output.sync_all().map_err(|e| e.to_string())?;
+        if hash(&temporary)? != entry["sha256"].as_str().unwrap_or("") {
+            return Err("quarantine-integrity".into());
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            output
+                .set_permissions(fs::Permissions::from_mode(
+                    entry["mode"].as_u64().unwrap_or(0o600) as u32 & 0o777,
+                ))
+                .map_err(|e| e.to_string())?;
+        }
+        // Hard-linking a completed temporary file publishes it atomically and refuses
+        // an existing destination, including one created after the initial check.
+        fs::hard_link(&temporary, &original).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                "quarantine-restore-conflict".into()
+            } else {
+                e.to_string()
+            }
+        })?;
+        Ok(())
+    })();
+    drop(output);
+    let _ = fs::remove_file(&temporary);
+    result?;
+    #[cfg(windows)]
+    if entry["mode"].as_u64() == Some(1) {
+        let mut permissions = fs::metadata(&original)
+            .map_err(|e| e.to_string())?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&original, permissions).map_err(|e| e.to_string())?;
     }
     entry["state"] = json!("restored");
     entry["restoredAt"] = json!(store::now());
     save(core, &entry)?;
-    for suffix in ["aegis", "pending"] {
-        let path = owned(core, id, suffix)?;
-        if path.exists() {
-            fs::remove_file(path).map_err(|e| e.to_string())?;
-        }
+    let container = owned(core, id, "aegis")?;
+    if container.exists() {
+        fs::remove_file(container).map_err(|e| e.to_string())?;
+    }
+    if pending.exists() {
+        fs::remove_file(pending).map_err(|e| e.to_string())?;
     }
     list(core)
 }
@@ -297,5 +365,51 @@ mod tests {
         save(&core, &json!({"id":id,"state":"isolated","original":file})).unwrap();
         assert!(restore(&core, &id).is_err());
         assert_eq!(fs::read_to_string(file).unwrap(), "original");
+    }
+    #[test]
+    fn restore_round_trip_checks_hash_and_container_is_not_executable() {
+        let root = tempfile::tempdir().unwrap();
+        let data = root.path().join("data");
+        let core = Core::new(data.clone(), data.join("engines")).unwrap();
+        store::private_dir(&data.join("quarantine")).unwrap();
+        let original = root.path().canonicalize().unwrap().join("sample.txt");
+        let id = store::id();
+        let bytes = b"a harmless quarantine fixture";
+        let digest = format!("{:x}", Sha256::digest(bytes));
+        let container = owned(&core, &id, "aegis").unwrap();
+        store::write_private(
+            &container,
+            &[HEADER, STANDARD.encode(bytes).as_bytes()].concat(),
+            true,
+        )
+        .unwrap();
+        save(
+            &core,
+            &json!({"id":id,"state":"isolated","original":original,"sha256":digest,"mode":384}),
+        )
+        .unwrap();
+        restore(&core, &id).unwrap();
+        assert_eq!(fs::read(&original).unwrap(), bytes);
+        assert!(!container.exists());
+        assert_eq!(list(&core).unwrap()[0]["state"], "restored");
+    }
+    #[test]
+    fn corrupted_container_is_retained_and_never_published() {
+        let root = tempfile::tempdir().unwrap();
+        let data = root.path().join("data");
+        let core = Core::new(data.clone(), data.join("engines")).unwrap();
+        store::private_dir(&data.join("quarantine")).unwrap();
+        let original = root.path().canonicalize().unwrap().join("sample.txt");
+        let id = store::id();
+        let container = owned(&core, &id, "aegis").unwrap();
+        store::write_private(&container, &[HEADER, b"YmFk"].concat(), true).unwrap();
+        save(
+            &core,
+            &json!({"id":id,"state":"isolated","original":original,"sha256":"wrong","mode":384}),
+        )
+        .unwrap();
+        assert!(restore(&core, &id).is_err());
+        assert!(!original.exists());
+        assert!(container.exists());
     }
 }

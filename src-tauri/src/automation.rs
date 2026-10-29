@@ -9,13 +9,14 @@ use std::{collections::HashSet, sync::atomic::Ordering, thread, time::Duration a
 use tauri::Emitter;
 
 pub fn defaults() -> Value {
-    json!({"autoDefinitions":false,"background":false,"onboardingDone":false,"schedule":{"enabled":false,"hour":20,"minute":0,"frequency":"daily","type":"quick","catchUp":true}})
+    json!({"autoDefinitions":false,"background":false,"onboardingDone":false,"schedule":{"enabled":false,"hour":20,"minute":0,"frequency":"daily","weekday":1,"type":"quick","catchUp":true}})
 }
 pub fn valid(key: &str, value: &Value) -> bool {
     match key {
         "autoDefinitions" | "background" | "onboardingDone" => value.is_boolean(),
         "schedule" => value.as_object().is_some_and(|o| {
-            o.len() == 6
+            o.len() == 7
+                && value["weekday"].as_u64().is_some_and(|n| n < 7)
                 && value["enabled"].is_boolean()
                 && value["catchUp"].is_boolean()
                 && value["hour"].as_u64().is_some_and(|n| n < 24)
@@ -34,7 +35,10 @@ pub fn due(config: &Value, last: &str, now: DateTime<Local>) -> Option<String> {
     let minute = config["minute"].as_u64()? as u32;
     for offset in 0..8 {
         let day = now.date_naive() - Duration::days(offset);
-        if config["frequency"] == "weekly" && day.weekday() != chrono::Weekday::Mon {
+        if config["frequency"] == "weekly"
+            && day.weekday().num_days_from_sunday()
+                != config["weekday"].as_u64().unwrap_or(1) as u32
+        {
             continue;
         }
         let time = Local
@@ -47,7 +51,7 @@ pub fn due(config: &Value, last: &str, now: DateTime<Local>) -> Option<String> {
             continue;
         }
         let key = time.to_rfc3339();
-        if key.as_str() <= last {
+        if DateTime::parse_from_rfc3339(last).is_ok_and(|last| last >= time) {
             return None;
         }
         if config["catchUp"] != true && (now - time).num_minutes() > 1 {
@@ -114,6 +118,18 @@ pub fn start(core: Core, app: tauri::AppHandle) {
                             list.truncate(500);
                             let _ = s.save();
                         }
+                        if !initial {
+                            if let Some(row) = rows.iter().find(|r| {
+                                !previous.contains(&connection_key(r))
+                                    && r["state"] == "Listen"
+                                    && !platform::loopback(r["localAddress"].as_str().unwrap_or(""))
+                            }) {
+                                let _ = app.emit(
+                                    "aegis:event",
+                                    json!({"type":"network-alert","data":row}),
+                                );
+                            }
+                        }
                         previous = current;
                         initial = false;
                         let _ = app.emit("aegis:event", json!({"type":"connections","data":rows}));
@@ -154,6 +170,14 @@ pub fn start(core: Core, app: tauri::AppHandle) {
                     state["scanAttempt"].as_str().unwrap_or(""),
                     Local::now(),
                 ) {
+                    if state["scanRetryAt"]
+                        .as_str()
+                        .and_then(|v| DateTime::parse_from_rfc3339(v).ok())
+                        .is_some_and(|time| Utc::now() < time)
+                    {
+                        thread::sleep(Wait::from_secs(5));
+                        continue;
+                    }
                     if claim(&core, "scanAttempt", json!(key)).is_ok() {
                         let kind = settings["schedule"]["type"].as_str().unwrap_or("quick");
                         match antivirus::start(&core, &app, kind, folder) {
@@ -163,6 +187,12 @@ pub fn start(core: Core, app: tauri::AppHandle) {
                             }
                             Err(error) => {
                                 let _ = claim(&core, "error", json!(error));
+                                let _ = claim(&core, "scanAttempt", state["scanAttempt"].clone());
+                                let _ = claim(
+                                    &core,
+                                    "scanRetryAt",
+                                    json!((Utc::now() + Duration::minutes(5)).to_rfc3339()),
+                                );
                             }
                         }
                     }

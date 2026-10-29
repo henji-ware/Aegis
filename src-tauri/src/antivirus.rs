@@ -204,6 +204,12 @@ pub fn start(
                 });
                 job["error"] = json!(started.as_ref().err());
                 job["endedAt"] = json!(store::now());
+                if let Ok(mut s) = core.store.lock() {
+                    s.data["activeScan"] = Value::Null;
+                    if s.push("scans", job.clone(), 50).is_err() {
+                        job["persistenceError"] = json!("result-not-saved");
+                    }
+                }
                 let _ = app.emit(
                     "aegis:event",
                     json!({"type":"antivirus","data":job.clone()}),
@@ -298,10 +304,18 @@ fn start_inner(
     let mut plan = None;
     if kind != "update" {
         let preparing = json!({"id":task_id,"type":kind,"state":"preparing","startedAt":store::now(),"targets":targets,"lines":[],"progress":{"phase":"inventory","discovered":0,"processed":0,"total":null,"percent":null}});
-        *core.job.lock().map_err(|_| "job-lock")? = preparing;
+        *core.job.lock().map_err(|_| "job-lock")? = preparing.clone();
+        {
+            let mut s = core.store.lock().map_err(|_| "state-lock")?;
+            s.data["activeScan"] = preparing.clone();
+            s.save()?;
+        }
+        let _ = app.emit("aegis:event", json!({"type":"antivirus","data":preparing}));
+        let mut excluded = crate::scan_plan::excluded(&core.dir);
+        excluded.extend(crate::quarantine::pending_files(core)?);
         let prepared = crate::scan_plan::build(
             &targets,
-            &crate::scan_plan::excluded(&core.dir),
+            &excluded,
             core.dir.join(format!("scan-{task_id}.list")),
             &core.scan_cancel,
             |count| {
@@ -384,33 +398,15 @@ fn start_inner(
     thread::spawn(move || {
         let mut output = ScanOutput::default();
         let mut processed = HashSet::new();
-        let mut tracker = |line: &str, job: &mut Value| {
-            if let Some(plan) = &plan {
-                if let Some(file) = line.strip_prefix("Scanning ") {
-                    if plan.files.contains(&crate::scan_plan::identity(file)) {
-                        job["progress"]["current"] = json!(file);
-                    }
-                }
-                if let Some((file, detail)) = line.rsplit_once(": ") {
-                    if detail == "OK" || detail.ends_with(" FOUND") || detail.ends_with(" ERROR") {
-                        let key = crate::scan_plan::identity(file);
-                        if plan.files.contains(&key) {
-                            processed.insert(key);
-                            job["progress"]["processed"] = json!(processed.len());
-                            job["progress"]["percent"] =
-                                json!((processed.len() * 100 / plan.files.len()).min(100));
-                        }
-                    }
-                }
-            }
-        };
         let mut exit = None;
         let mut checkpoint = std::time::Instant::now();
         loop {
             drain_output_batch(&rx, &state.scan_cancel, |line| {
                 output.accept(line);
                 if let Ok(mut job) = state.job.lock() {
-                    tracker(line, &mut job);
+                    if let Some(plan) = &plan {
+                        crate::scan_plan::track(line, &mut job, &plan.files, &mut processed);
+                    }
                     let lines = job["lines"].as_array_mut().unwrap();
                     lines.push(json!(line.chars().take(1500).collect::<String>()));
                     if lines.len() > 120 {
@@ -468,7 +464,9 @@ fn start_inner(
         for line in rx {
             output.accept(&line);
             if let Ok(mut job) = state.job.lock() {
-                tracker(&line, &mut job);
+                if let Some(plan) = &plan {
+                    crate::scan_plan::track(&line, &mut job, &plan.files, &mut processed);
+                }
                 let lines = job["lines"].as_array_mut().unwrap();
                 lines.push(json!(line.chars().take(1500).collect::<String>()));
                 if lines.len() > 120 {
@@ -486,6 +484,8 @@ fn start_inner(
                 job["summary"] = output.result(exit.unwrap_or(-1));
                 if let Some(plan) = &plan {
                     job["summary"]["skipped"] = json!(plan.skipped);
+                    job["summary"]["errors"] =
+                        json!(job["summary"]["errors"].as_u64().unwrap_or(0) + plan.error_count);
                     if !plan.errors.is_empty()
                         || plan.limited
                         || processed.len() != plan.files.len()

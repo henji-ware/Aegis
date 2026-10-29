@@ -28,7 +28,7 @@ pub fn diagnose(core: &Core) -> Result<Value> {
         privacy::observe(&active)
     };
     let interface = observed["interfaceName"].as_str().unwrap_or("");
-    let mut checks = json!({"tunnel":"unknown","route":"unknown","dns":"unknown"});
+    let mut checks = json!({"tunnel":"unknown","route":"unknown","ipv6":"unknown","dns":"unknown"});
     let mut evidence = json!({"interface":observed});
     if observed["interfaceActive"] == true {
         checks["tunnel"] = json!("pass");
@@ -44,6 +44,18 @@ pub fn diagnose(core: &Core) -> Result<Value> {
                         .as_array()
                         .is_some_and(|rows| rows.iter().any(|r| r["InterfaceAlias"] == interface));
                     checks["route"] = json!(if route { "pass" } else { "review" });
+                    let routes = v["ipv6"].as_array();
+                    if routes.is_some_and(|r| !r.is_empty()) {
+                        checks["ipv6"] = json!(if routes
+                            .unwrap()
+                            .iter()
+                            .any(|r| r["InterfaceAlias"] == interface)
+                        {
+                            "pass"
+                        } else {
+                            "review"
+                        });
+                    }
                     let dns = v["dns"]
                         .as_array()
                         .into_iter()
@@ -74,6 +86,30 @@ pub fn diagnose(core: &Core) -> Result<Value> {
         }
     } else if cfg!(target_os = "linux") {
         if let Some(ip) = tool("ip", &[]) {
+            if let Ok(text) = run(
+                &ip,
+                &[
+                    "-j".into(),
+                    "-6".into(),
+                    "route".into(),
+                    "get".into(),
+                    "2606:4700:4700::1111".into(),
+                ],
+            ) {
+                if let Ok(routes) = serde_json::from_str::<Value>(&text) {
+                    if !interface.is_empty() && observed["interfaceActive"] == true {
+                        checks["ipv6"] = json!(if routes
+                            .as_array()
+                            .is_some_and(|r| r.iter().any(|r| r["dev"] == interface))
+                        {
+                            "pass"
+                        } else {
+                            "review"
+                        });
+                    }
+                    evidence["ipv6Routes"] = routes;
+                }
+            }
             match run(
                 &ip,
                 &["-j".into(), "route".into(), "get".into(), "1.1.1.1".into()],
@@ -204,6 +240,9 @@ pub fn protect(core: &Core) -> Result<Value> {
     if !core.store.lock().map_err(|_| "state-lock")?.data["killSwitch"].is_null() {
         return Err("kill-switch-already-active".into());
     }
+    if meta["peers"] != 1 {
+        return Err("invalid-vpn-profile".into());
+    }
     let endpoint = meta["endpoint"].as_str().ok_or("invalid-vpn-profile")?;
     let endpoints = endpoint
         .to_socket_addrs()
@@ -241,28 +280,38 @@ pub fn unprotect(core: &Core) -> Result<Value> {
     let nft = tool("nft", &[]).ok_or("nft-required")?;
     let table = format!("aegis_{}", uuid.simple());
     // Read with the same OS authorization as deletion and verify this exact table's owner.
-    let output = elevate(
-        &nft,
-        &[
-            "-j".into(),
-            "list".into(),
-            "table".into(),
-            "inet".into(),
-            table.clone(),
-        ],
-    )?;
+    let output = elevate(&nft, &["-j".into(), "list".into(), "tables".into()])?;
     let data: Value = serde_json::from_str(&output).map_err(|_| "rule-ownership-unverified")?;
-    if !data["nftables"].as_array().is_some_and(|items| {
-        items
-            .iter()
-            .any(|v| v["table"]["name"] == table && v["table"]["comment"] == format!("Aegis {id}"))
-    }) {
-        return Err("rule-ownership-unverified".into());
+    let items = data["nftables"]
+        .as_array()
+        .ok_or("rule-ownership-unverified")?;
+    let present = items
+        .iter()
+        .any(|v| v["table"]["name"] == table && v["table"]["family"] == "inet");
+    if present {
+        let output = elevate(
+            &nft,
+            &[
+                "-j".into(),
+                "list".into(),
+                "table".into(),
+                "inet".into(),
+                table.clone(),
+            ],
+        )?;
+        let data: Value = serde_json::from_str(&output).map_err(|_| "rule-ownership-unverified")?;
+        if !data["nftables"].as_array().is_some_and(|items| {
+            items.iter().any(|v| {
+                v["table"]["name"] == table && v["table"]["comment"] == format!("Aegis {id}")
+            })
+        }) {
+            return Err("rule-ownership-unverified".into());
+        }
+        elevate(
+            &nft,
+            &["delete".into(), "table".into(), "inet".into(), table],
+        )?;
     }
-    elevate(
-        &nft,
-        &["delete".into(), "table".into(), "inet".into(), table],
-    )?;
     {
         let mut s = core.store.lock().map_err(|_| "state-lock")?;
         s.data["killSwitch"] = Value::Null;
@@ -291,5 +340,19 @@ mod tests {
             &[("192.0.2.1".parse().unwrap(), 1)]
         )
         .is_err());
+    }
+    #[test]
+    fn ci_rule_fixture() {
+        if cfg!(target_os = "linux") && std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+            let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.build");
+            fs::create_dir_all(&folder).unwrap();
+            let rules = nft_rules(
+                "00000000-0000-4000-8000-000000000001",
+                "ag1234567890",
+                &[("192.0.2.1".parse().unwrap(), 51821)],
+            )
+            .unwrap();
+            fs::write(folder.join("kill-switch-fixture.nft"), rules).unwrap();
+        }
     }
 }

@@ -49,6 +49,12 @@ mod tests {
             )
             .unwrap();
             let sig = Signature::decode(&sig).unwrap();
+            assert!(
+                sig.trusted_comment()
+                    .split('\t')
+                    .any(|f| f == format!("version:{}", env!("CARGO_PKG_VERSION"))),
+                "Updater signature must bind the app version"
+            );
             let package = path.with_file_name(
                 path.file_name()
                     .unwrap()
@@ -68,6 +74,15 @@ mod tests {
     }
 }
 pub fn check(core: &Core, app: &tauri::AppHandle) -> Result<Value> {
+    let portable = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.join("aegis-portable.json")))
+        .is_some_and(|p| p.is_file());
+    if portable || cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_none() {
+        return Ok(
+            json!({"available":false,"supported":false,"manual":if portable{"portable"}else{"package"}}),
+        );
+    }
     let update = tauri::async_runtime::block_on(
         app.updater_builder()
             .timeout(Duration::from_secs(30))

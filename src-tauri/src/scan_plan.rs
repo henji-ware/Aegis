@@ -20,6 +20,40 @@ pub fn identity(path: &str) -> [u8; 32] {
     };
     Sha256::digest(value.as_bytes()).into()
 }
+fn within(file: &Path, parent: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        let clean = |p: &Path| {
+            PathBuf::from(
+                p.to_string_lossy()
+                    .trim_start_matches(r"\\?\")
+                    .to_lowercase(),
+            )
+        };
+        clean(file).starts_with(clean(parent))
+    }
+    #[cfg(not(windows))]
+    {
+        file.starts_with(parent)
+    }
+}
+pub fn track(line: &str, job: &mut Value, known: &HashSet<[u8; 32]>, seen: &mut HashSet<[u8; 32]>) {
+    if let Some(file) = line.strip_prefix("Scanning ") {
+        if known.contains(&identity(file)) {
+            job["progress"]["current"] = json!(file);
+        }
+    }
+    if let Some((file, detail)) = line.rsplit_once(": ") {
+        if detail == "OK" || detail.ends_with(" FOUND") || detail.ends_with(" ERROR") {
+            let key = identity(file);
+            if known.contains(&key) {
+                seen.insert(key);
+                job["progress"]["processed"] = json!(seen.len());
+                job["progress"]["percent"] = json!(seen.len() * 100 / known.len().max(1));
+            }
+        }
+    }
+}
 pub fn issue(path: &str, detail: &str) -> Value {
     let lower = detail.to_lowercase();
     let kind =
@@ -45,6 +79,7 @@ pub struct Plan {
     pub path: PathBuf,
     pub files: HashSet<[u8; 32]>,
     pub errors: Vec<Value>,
+    pub error_count: u64,
     pub skipped: u64,
     pub limited: bool,
 }
@@ -64,6 +99,7 @@ pub fn build(
         path,
         files: HashSet::new(),
         errors: vec![],
+        error_count: 0,
         skipped: 0,
         limited: false,
     };
@@ -72,21 +108,34 @@ pub fn build(
         .append(true)
         .open(&plan.path)
         .map_err(|e| e.to_string())?;
-    let mut stack = targets.to_vec();
+    let mut stack = targets
+        .iter()
+        .map(|p| {
+            #[cfg(unix)]
+            let volume = {
+                use std::os::unix::fs::MetadataExt;
+                fs::symlink_metadata(p).ok().map(|m| m.dev())
+            };
+            #[cfg(not(unix))]
+            let volume: Option<u64> = None;
+            (p.clone(), volume)
+        })
+        .collect::<Vec<_>>();
     let mut dirs = HashSet::new();
     let mut tick = Instant::now();
     let mut bytes = 0;
-    while let Some(file) = stack.pop() {
+    while let Some((file, volume)) = stack.pop() {
         if cancel.load(Ordering::SeqCst) {
             return Err("cancelled".into());
         }
-        if excluded.iter().any(|p| file.starts_with(p)) {
+        if excluded.iter().any(|p| within(&file, p)) {
             plan.skipped += 1;
             continue;
         }
         let meta = match fs::symlink_metadata(&file) {
             Ok(m) => m,
             Err(e) => {
+                plan.error_count += 1;
                 if plan.errors.len() < 200 {
                     plan.errors
                         .push(issue(&file.to_string_lossy(), &e.to_string()));
@@ -95,11 +144,26 @@ pub fn build(
                 continue;
             }
         };
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if volume.is_some_and(|d| d != meta.dev()) {
+                plan.skipped += 1;
+                continue;
+            }
+        }
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
             if meta.file_attributes() & 0x400 != 0 {
                 plan.skipped += 1;
+                plan.error_count += 1;
+                if plan.errors.len() < 200 {
+                    plan.errors.push(issue(
+                        &file.to_string_lossy(),
+                        "Cloud placeholder, link or reparse-point item was not followed",
+                    ));
+                }
                 continue;
             }
         }
@@ -108,7 +172,18 @@ pub fn build(
             continue;
         }
         if meta.is_dir() {
-            let canonical = file.canonicalize().map_err(|e| e.to_string())?;
+            let canonical = match file.canonicalize() {
+                Ok(path) => path,
+                Err(error) => {
+                    plan.skipped += 1;
+                    plan.error_count += 1;
+                    if plan.errors.len() < 200 {
+                        plan.errors
+                            .push(issue(&file.to_string_lossy(), &error.to_string()));
+                    }
+                    continue;
+                }
+            };
             if !dirs.insert(canonical) {
                 continue;
             }
@@ -116,9 +191,16 @@ pub fn build(
                 Ok(entries) => {
                     for entry in entries {
                         match entry {
-                            Ok(e) => stack.push(e.path()),
+                            Ok(e) => {
+                                if stack.len() >= 1_000_000 {
+                                    plan.limited = true;
+                                    break;
+                                }
+                                stack.push((e.path(), volume));
+                            }
                             Err(e) => {
                                 plan.skipped += 1;
+                                plan.error_count += 1;
                                 if plan.errors.len() < 200 {
                                     plan.errors
                                         .push(issue(&file.to_string_lossy(), &e.to_string()));
@@ -129,6 +211,7 @@ pub fn build(
                 }
                 Err(e) => {
                     plan.skipped += 1;
+                    plan.error_count += 1;
                     if plan.errors.len() < 200 {
                         plan.errors
                             .push(issue(&file.to_string_lossy(), &e.to_string()));
@@ -150,6 +233,7 @@ pub fn build(
                 writeln!(out, "{text}").map_err(|e| e.to_string())?;
             } else {
                 plan.skipped += 1;
+                plan.error_count += 1;
                 if plan.errors.len() < 200 {
                     plan.errors
                         .push(issue(&file.to_string_lossy(), "Unsupported file-list name"));
@@ -217,5 +301,32 @@ mod tests {
     fn errors_have_actionable_categories() {
         assert_eq!(issue("file", "Permission denied")["kind"], "permission");
         assert_eq!(issue("file", "No such file")["kind"], "missing");
+    }
+    #[test]
+    fn progress_ignores_archive_subitems_and_duplicate_matches() {
+        let known = HashSet::from([identity("/data/file.zip")]);
+        let mut seen = HashSet::new();
+        let mut job = json!({"progress":{}});
+        track(
+            "/data/file.zip!inner: Sample FOUND",
+            &mut job,
+            &known,
+            &mut seen,
+        );
+        assert!(seen.is_empty());
+        track(
+            "/data/file.zip: Test.One FOUND",
+            &mut job,
+            &known,
+            &mut seen,
+        );
+        track(
+            "/data/file.zip: Test.Two FOUND",
+            &mut job,
+            &known,
+            &mut seen,
+        );
+        assert_eq!(seen.len(), 1);
+        assert_eq!(job["progress"]["percent"], 100);
     }
 }

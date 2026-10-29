@@ -1,0 +1,20 @@
+{
+  "scan-no-readable-files": "Nenhum arquivo acessível foi encontrado.",
+  "quarantine-protected-file": "Este arquivo pertence a uma área protegida.",
+  "quarantine-unsupported-file": "Este tipo de arquivo não pode ser isolado.",
+  "quarantine-hard-links": "Arquivos com múltiplos vínculos não podem ser isolados.",
+  "quarantine-file-changed": "O arquivo mudou. Execute uma nova varredura.",
+  "quarantine-detection-changed": "O arquivo mudou. Execute uma nova varredura.",
+  "quarantine-restore-conflict": "Já existe um arquivo no destino. Nada foi substituído.",
+  "quarantine-integrity": "A integridade do arquivo isolado não confere. A cópia foi preservada.",
+  "quarantine-parent-changed": "A pasta de destino mudou. A restauração foi interrompida.",
+  "quarantine-move-failed": "Não foi possível mover o arquivo. Confira as permissões.",
+  "quarantine-limit": "A área de quarentena atingiu o limite de registros.",
+  "invalid-quarantine-item": "Consulte os detalhes e tente novamente.",
+  "startup-state-unconfirmed": "O sistema não confirmou a inicialização automática.",
+  "update-check-required": "Busque atualizações antes de instalar.",
+  "update-untrusted-origin": "A origem da atualização não foi reconhecida.",
+  "invalid-ip-response": "O servidor enviou uma resposta inválida.",
+  "kill-switch-unsupported": "Este modo de bloqueio não está disponível neste sistema.",
+  "nft-required": "Instale o nftables para usar este bloqueio."
+}

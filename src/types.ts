@@ -1,5 +1,5 @@
 export type Page='overview'|'audit'|'antivirus'|'network'|'firewall'|'privacy'|'history'|'settings';
-export interface Settings{reducedMotion:boolean;liveNetwork:boolean;language?:string;autoDefinitions?:boolean;background?:boolean;onboardingDone?:boolean;schedule?:{enabled:boolean;hour:number;minute:number;frequency:string;type:string;catchUp:boolean}}
+export interface Settings{reducedMotion:boolean;liveNetwork:boolean;language?:string;autoDefinitions?:boolean;background?:boolean;onboardingDone?:boolean;schedule?:{enabled:boolean;hour:number;minute:number;frequency:string;weekday?:number;type:string;catchUp:boolean}}
 export interface SystemInfo{platform:string;release:string;architecture:string;hostname:string;os:string;memory:number;cpus:number;interfaces:{name:string;address:string;family:string}[]}
 export interface Connection{analysis?:{level:string;signals:string[];path:string|null;signature:string|null;inspected:boolean;at:string;token:string|null};id:string;protocol:string;localAddress:string;localPort:number;remoteAddress:string;remotePort:number;state:string;pid:number;process:string}
 export interface Check{id:string;title:string;status:'pass'|'warning'|'review'|'unknown';evidence:string;recommendation:string;action?:Page}

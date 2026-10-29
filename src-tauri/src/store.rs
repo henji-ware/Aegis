@@ -77,6 +77,11 @@ pub fn parse(text: &str) -> Result<Value> {
             }
         }
     }
+    if value["settings"]["schedule"].is_object()
+        && value["settings"]["schedule"].get("weekday").is_none()
+    {
+        value["settings"]["schedule"]["weekday"] = json!(1);
+    }
     for key in [
         "automation",
         "scheduleFolder",
@@ -90,8 +95,12 @@ pub fn parse(text: &str) -> Result<Value> {
         }
     }
     if !value["automation"].is_object()
-        || !value["networkHistory"].is_array()
-        || !value["quarantine"].is_array()
+        || !value["networkHistory"]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
+        || !value["quarantine"]
+            .as_array()
+            .is_some_and(|items| items.iter().all(Value::is_object))
     {
         return Err("invalid-local-data".into());
     }
@@ -336,6 +345,34 @@ mod tests {
         let mut data = defaults();
         data["profiles"] = json!([{"id":"profile","name":"VPN","meta":{"dns":null,"fullTunnel":true,"ipv6":true}}]);
         assert!(parse(&data.to_string()).is_err());
+    }
+    #[test]
+    fn legacy_041_settings_upgrade_without_losing_history() {
+        let mut old = defaults();
+        old["history"] = json!([{"id":"keep","title":"previous diagnostic"}]);
+        for key in [
+            "autoDefinitions",
+            "background",
+            "onboardingDone",
+            "schedule",
+        ] {
+            old["settings"].as_object_mut().unwrap().remove(key);
+        }
+        for key in [
+            "automation",
+            "scheduleFolder",
+            "networkMonitor",
+            "networkHistory",
+            "quarantine",
+            "killSwitch",
+        ] {
+            old.as_object_mut().unwrap().remove(key);
+        }
+        let updated = parse(&old.to_string()).unwrap();
+        assert_eq!(updated["history"][0]["id"], "keep");
+        assert_eq!(updated["settings"]["autoDefinitions"], false);
+        assert_eq!(updated["settings"]["schedule"]["enabled"], false);
+        assert!(updated["quarantine"].is_array());
     }
 }
 

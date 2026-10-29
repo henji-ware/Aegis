@@ -8,33 +8,37 @@ Free and open-source desktop security tools, built with **Tauri 2, Rust, React, 
 
 ## Download
 
-Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Version 0.4.1 is the first standard release on the stable channel. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
+Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Aegis 1.0 uses the stable release channel. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
 
 | Platform | Packages | Architecture |
 |---|---|---|
-| Windows | NSIS `.exe`, `.msi` | x64 |
+| Windows | NSIS `.exe`, `.msi`, no-install `.zip` | x64 |
 | Linux | `.deb`, `.rpm`, `.AppImage` | x64 |
 | macOS | `.dmg` | Apple silicon |
 
-The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. The 0.4.1 release validates installation and removal on Debian 13. Package dependencies and the exact CI results are documented with each release.
+The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. The release pipeline validates installation and removal on Debian 13. Package dependencies and the exact CI results are documented with each release.
+
+Extract the complete Windows ZIP and open `aegis-desktop.exe` without installing it. Keep its `engines` directory beside the executable. WebView2 remains a system prerequisite; application data uses your normal user profile. The ZIP does not register a Start menu shortcut or uninstaller.
 
 ## Features
 
 | Module | Behavior |
 |---|---|
 | Diagnostics | Read-only checks with passed, attention, review and unknown states. Windows checks include Smart App Control, VBS and memory integrity. |
-| Antivirus | Independent ClamAV/FreshClam, quick/full/custom scans, cancellation, retained detections and explicit partial results. No Windows Defender dependency. |
-| Connections | TCP sockets, process names, local executable inspection and review signals. A selected executable can be scanned with ClamAV. |
+| Antivirus | Independent ClamAV/FreshClam, quick/full/custom scans, inventory-based percentage progress, per-file errors, cancellation, opt-in schedules and explicit reversible quarantine. No Windows Defender dependency. |
+| Connections | TCP sockets, process names, local executable inspection and review signals. A selected executable can be scanned with ClamAV. Opt-in monitoring saves bounded change history and shows in-app alerts for new non-loopback listeners. |
 | Firewall | Confirmed native hardening, saved prior settings, restoration and owned inbound TCP block rules on Windows/UFW. |
-| WireGuard | Strict profile validation, private keys in the OS credential vault, explicit activation and recoverable tunnel state. No VPN server is supplied. |
+| WireGuard | Strict profile validation, private keys in the OS credential vault, explicit activation and recoverable tunnel state. Local route/DNS evidence and explicit public-IP lookup. Optional scoped Linux nftables blocking outside an active owned single-peer tunnel. No VPN server is supplied. |
 | Tor | Bundled Tor client with a loopback-only SOCKS proxy. Applications must opt in to the proxy; it does not route all device traffic. |
 | Activity | Local history, comparisons and escaped HTML reports. |
+| Automation | Daily or weekly scans, missed-task recovery, four-hour definition updates, optional startup and tray mode. Tasks run while Aegis is running. |
+| Updates | Version-bound signed packages, download progress and explicit installation on supported installer/AppImage builds. DEB/RPM and portable ZIP builds update manually. |
 
-Connection analysis uses local evidence. A listening port or a temporary executable location is a reason to review, not proof of malware. No external IP reputation service receives your connections. No automatic process termination, file deletion, quarantine or real-time antivirus protection is implemented. ClamAV definitions must be downloaded before normal scans; a completed scan is not a guarantee that a file is safe.
+Connection analysis uses local evidence. A listening port or a temporary executable location is a reason to review, not proof of malware. No external IP reputation service receives your connections. Files are quarantined only after explicit selection, a fresh detection check and native confirmation. No automatic process termination, deletion or real-time antivirus protection is implemented. ClamAV definitions must be downloaded before normal scans; a completed scan is not a guarantee that a file is safe.
 
 ## Interface and languages
 
-Black surfaces with restrained dark green details, an orbital point network, local process selection and pointer parallax. The overview separates diagnostic indicators, connections, device state and module access. Decorative stars and lines are abstract; they do not represent geography, measured traffic or detected attacks. Continuous movement stops with reduced motion and pauses while hidden.
+Black surfaces with restrained dark green details and a logo-only sidebar. The overview separates diagnostic indicators, connections, device state and module access. The interactive 3D view connects observed processes to socket destinations/listening ports; node sizes reflect socket counts. It displays a bounded subset, not measured traffic or geography. Pointer parallax respects reduced motion and pauses while hidden.
 
 Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are available only in Preferences, take effect immediately and are saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
 
