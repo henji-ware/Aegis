@@ -38,7 +38,7 @@ Connection analysis uses local evidence. A listening port or a temporary executa
 
 ## Interface and languages
 
-Black surfaces with restrained dark green details and a logo-only sidebar. The overview separates diagnostic indicators, connections, device state and module access. The interactive 3D view connects observed processes to socket destinations/listening ports; node sizes reflect socket counts. It displays a bounded subset, not measured traffic or geography. Pointer parallax respects reduced motion and pauses while hidden.
+Black surfaces with restrained dark green details and a logo-only sidebar. The overview separates diagnostic indicators, connections, device state and module access. The connection explorer has searchable application cards, socket counts and readable destination/listening-port buttons. All applications returned by the native query remain available in scrollable lists; selecting one focuses its destinations, and selecting a destination opens its address, port, protocol, state, PID and analysis details. Arrow keys, Home and End navigate applications. Subtle 3D links represent the selected application's observed sockets, not measured traffic or geography. Parallax respects reduced motion and pauses while hidden; the controls also work without WebGL.
 
 Portuguese, English, Spanish, French, German, Russian, Simplified Chinese, Japanese, Arabic and Hindi are bundled. Language changes are available only in Preferences, take effect immediately and are saved. Arabic uses right-to-left layout. App summaries, recommendations and history headings follow the selected language. Original OS/engine output and legacy records remain available under **Original details**. No translation service is contacted.
 

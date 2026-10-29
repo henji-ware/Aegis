@@ -1,45 +1,59 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState,type KeyboardEvent} from 'react';
 import * as THREE from 'three';
+import {Search,Monitor,ArrowUpRight,X} from 'lucide-react';
 import {t,useI18n} from './i18n';
 import type {Connection} from './types';
-type Props={connections:Connection[];reducedMotion:boolean;onSelect?:(process:string)=>void};
+
+type Props={connections:Connection[];reducedMotion:boolean;onSelect?:(process:string)=>void;onInspect?:(connection:Connection)=>void};
 export function graphData(connections:Connection[]){
- const groups=new Map<string,{name:string;count:number;review:boolean;targets:Map<string,number>}>();
- for(const row of connections){const name=row.process||`PID ${row.pid}`;let group=groups.get(name);if(!group){group={name,count:0,review:false,targets:new Map()};groups.set(name,group);}group.count++;group.review ||=row.analysis?.level==='review';const target=row.state==='Listen'?`${row.localAddress}:${row.localPort} (${t('Em escuta')})`:`${row.remoteAddress}:${row.remotePort}`;group.targets.set(target,(group.targets.get(target)||0)+1);}
- const processes=[...groups.values()].sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,12);
- const targets=[...new Set(processes.flatMap(p=>[...p.targets.keys()]))].slice(0,12);
- return {processes,targets,omitted:groups.size-processes.length};
+ const groups=new Map<string,{name:string;count:number;review:boolean;rows:Connection[]}>();
+ for(const row of connections){const name=row.process||`PID ${row.pid}`;let group=groups.get(name);if(!group){group={name,count:0,review:false,rows:[]};groups.set(name,group);}group.count++;group.review ||=row.analysis?.level==='review';group.rows.push(row);}
+ return [...groups.values()].sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
 }
-export function Orb({connections,reducedMotion,onSelect}:Props){
- const host=useRef<HTMLDivElement>(null),callback=useRef(onSelect),labels=useRef<(HTMLSpanElement|null)[]>([]);callback.current=onSelect;
- const [fallback,setFallback]=useState(false),[hover,setHover]=useState('');useI18n();
- const graph=useMemo(()=>graphData(connections),[connections,t('Em escuta')]);
- const signature=JSON.stringify(graph.processes.map(p=>({name:p.name,count:p.count,review:p.review,targets:[...p.targets]})));
+function endpoint(row:Connection){const address=row.state==='Listen'?row.localAddress:row.remoteAddress;return `${address.includes(':')?`[${address}]`:address}:${row.state==='Listen'?row.localPort:row.remotePort}`;}
+export function Orb({connections,reducedMotion,onSelect,onInspect}:Props){
+ useI18n();const host=useRef<HTMLDivElement>(null),active=useRef<HTMLButtonElement>(null),targets=useRef<HTMLDivElement>(null);
+ const [selected,setSelected]=useState(''),[search,setSearch]=useState(''),[fallback,setFallback]=useState(false);
+ const groups=useMemo(()=>graphData(connections),[connections]);
+ const visible=useMemo(()=>{const q=search.toLocaleLowerCase();return groups.filter(p=>p.name.toLocaleLowerCase().includes(q)||p.rows.some(row=>`${row.pid} ${endpoint(row)}`.toLocaleLowerCase().includes(q)));},[groups,search]);
+ const current=visible.find(p=>p.name===selected)||visible[0];
+ const signature=JSON.stringify(current?.rows.map(row=>[row.id,endpoint(row),row.analysis?.level]));
+ function select(name:string){setSelected(name);onSelect?.(name);if(targets.current)targets.current.scrollTop=0;}
+ function navigate(event:KeyboardEvent<HTMLButtonElement>,index:number){let next:number|undefined;if(event.key==='ArrowDown')next=Math.min(index+1,visible.length-1);if(event.key==='ArrowUp')next=Math.max(index-1,0);if(event.key==='Home')next=0;if(event.key==='End')next=visible.length-1;if(next!==undefined){event.preventDefault();select(visible[next].name);const button=host.current?.querySelectorAll<HTMLButtonElement>('.graph-app')[next];button?.focus();button?.scrollIntoView({block:'nearest'});}}
  useEffect(()=>{
-  const element=host.current;if(!element||!graph.processes.length)return;
+  const element=host.current;if(!element||!current)return;
   let renderer:THREE.WebGLRenderer;
   try{renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});}catch{setFallback(true);return;}
-  setFallback(false);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.domElement.dataset.visual='connections';element.appendChild(renderer.domElement);
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(36,1,.1,50),field=new THREE.Group();scene.add(field);camera.position.set(0,.1,12);
-  const pickable:THREE.Mesh[]=[],nodes:THREE.Mesh[]=[];const geometries:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[];
-  const addNode=(position:THREE.Vector3,size:number,color:number,process?:string)=>{const geometry=new THREE.IcosahedronGeometry(size,1),material=new THREE.MeshBasicMaterial({color,wireframe:true});geometries.push(geometry);materials.push(material);const node=new THREE.Mesh(geometry,material);nodes.push(node);node.position.copy(position);if(process){node.userData.process=process;pickable.push(node);}field.add(node);return node;};
-  const left=graph.processes.map((p,i)=>new THREE.Vector3(-2.15,(graph.processes.length-1)*.22-i*.44,Math.sin(i*.9)*.4));
-  const right=graph.targets.map((_,i)=>new THREE.Vector3(2.2,(graph.targets.length-1)*.22-i*.44,Math.cos(i*.8)*.16));
-  const points:number[]=[];const targetMap=new Map(graph.targets.map((name,i)=>[name,i]));
-  graph.processes.forEach((p,i)=>{addNode(left[i],.075+Math.min(p.count,20)*.003,p.review?0xb69b65:0x9bc8ad,p.name);for(const target of p.targets.keys()){const index=targetMap.get(target);if(index!==undefined){const center=new THREE.Vector3(0,(left[i].y+right[index].y)/2,.6);const curve=new THREE.QuadraticBezierCurve3(left[i],center,right[index]);const lineGeometry=new THREE.BufferGeometry().setFromPoints(curve.getPoints(24));const material=new THREE.LineBasicMaterial({color:p.review?0x6d5d37:0x2f6249,transparent:true,opacity:.52});geometries.push(lineGeometry);materials.push(material);field.add(new THREE.Line(lineGeometry,material));}}});
-  right.forEach(p=>addNode(p,.05,0x548a6b));
-  const dividerGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-2.5,-.8),new THREE.Vector3(0,2.5,-.8)]);const dividerMaterial=new THREE.LineDashedMaterial({color:0x233029,dashSize:.04,gapSize:.09});geometries.push(dividerGeometry);materials.push(dividerMaterial);const divider=new THREE.Line(dividerGeometry,dividerMaterial);divider.computeLineDistances();field.add(divider);
-  const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();let frame=0,disposed=false,inView=true,visible=!document.hidden,last=0,targetX=0,targetY=0,x=0,y=0,selected:THREE.Mesh|undefined;
-  function draw(){field.rotation.y=x*.12;field.rotation.x=y*.05;camera.lookAt(0,0,0);renderer.render(scene,camera);const rect=element!.getBoundingClientRect();[...left,...right].forEach((point,index)=>{const label=labels.current[index];if(!label)return;const projected=field.localToWorld(point.clone()).project(camera);label.style.transform=`translate(${(projected.x+1)*rect.width/2}px,${(1-projected.y)*rect.height/2}px)`;const width=Math.min(132,rect.width*.25-18);label.style.width=width+'px';label.style.maxWidth=width+'px';if(index<left.length)label.style.marginLeft=(-width-10)+'px';});}
-  function render(now:number){frame=0;if(disposed||!visible||!inView)return;if(now-last>=33||reducedMotion){last=now;x+=((reducedMotion?0:targetX)-x)*.12;y+=((reducedMotion?0:targetY)-y)*.12;draw();}if(!reducedMotion&&(Math.abs(targetX-x)>.0001||Math.abs(targetY-y)>.0001))frame=requestAnimationFrame(render);}
-  const start=()=>{if(!frame&&!disposed&&inView&&visible)frame=requestAnimationFrame(render);};const stop=()=>{cancelAnimationFrame(frame);frame=0;};
-  function resize(){const rect=element!.getBoundingClientRect();if(!rect.width||!rect.height)return;renderer.setSize(rect.width,rect.height);camera.aspect=rect.width/rect.height;const tangent=Math.tan(THREE.MathUtils.degToRad(18)),span=Math.max((graph.processes.length-1)*.44,(graph.targets.length-1)*.44,2.5)+1.2;camera.position.z=Math.max(6.7,span/(2*tangent));field.scale.x=camera.position.z*tangent*camera.aspect*.5/2.2;nodes.forEach(node=>node.scale.x=1/field.scale.x);camera.updateProjectionMatrix();draw();start();}
-  function move(event:PointerEvent){const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);targetX=pointer.x;targetY=pointer.y;raycaster.setFromCamera(pointer,camera);selected=raycaster.intersectObjects(pickable)[0]?.object as THREE.Mesh|undefined;setHover(selected?.userData.process||'');renderer.domElement.style.cursor=selected?'pointer':'default';start();}
-  function leave(){targetX=targetY=0;selected=undefined;setHover('');start();}function click(){if(selected)callback.current?.(selected.userData.process);}
+  setFallback(false);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0,0);renderer.domElement.dataset.visual='connections';renderer.domElement.setAttribute('aria-hidden','true');element.prepend(renderer.domElement);
+  const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,1000),field=new THREE.Group();scene.add(field);camera.position.z=400;
+  const geometries:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[];
+  let frame=0,disposed=false,inView=true,documentVisible=!document.hidden,targetX=0,x=0;
+  function clear(){field.clear();geometries.splice(0).forEach(g=>g.dispose());materials.splice(0).forEach(m=>m.dispose());}
+  function draw(){
+   const box=element!.getBoundingClientRect(),source=active.current?.getBoundingClientRect(),column=targets.current?.getBoundingClientRect();clear();field.rotation.y=reducedMotion?0:x*.035;
+   if(source&&column){const start=new THREE.Vector3(source.right-box.left+4-box.width/2,box.height/2-(Math.max(column.top+12,Math.min(column.bottom-12,source.top+source.height/2))-box.top),0);
+    for(const button of targets.current!.querySelectorAll<HTMLButtonElement>('.graph-target')){const rect=button.getBoundingClientRect();if(rect.bottom<column.top||rect.top>column.bottom)continue;const end=new THREE.Vector3(rect.left-box.left-box.width/2-4,box.height/2-(rect.top+rect.height/2-box.top),0),curve=new THREE.CubicBezierCurve3(start,new THREE.Vector3(start.x+35,start.y,15),new THREE.Vector3(end.x-35,end.y,15),end),geometry=new THREE.BufferGeometry().setFromPoints(curve.getPoints(24)),material=new THREE.LineBasicMaterial({color:current!.review?0x9d875a:0x5e9d76,transparent:true,opacity:.48});geometries.push(geometry);materials.push(material);field.add(new THREE.Line(geometry,material));
+     for(const point of [start,end]){const nodeGeometry=new THREE.SphereGeometry(2.4,8,6),nodeMaterial=new THREE.MeshBasicMaterial({color:current!.review?0xc1a66e:0xa0d3b0});geometries.push(nodeGeometry);materials.push(nodeMaterial);const node=new THREE.Mesh(nodeGeometry,nodeMaterial);node.position.copy(point);field.add(node);}
+    }
+   }renderer.render(scene,camera);
+  }
+  function render(){frame=0;if(disposed||!documentVisible||!inView)return;x+=((reducedMotion?0:targetX)-x)*.2;draw();if(!reducedMotion&&Math.abs(targetX-x)>.001)frame=requestAnimationFrame(render);}
+  const start=()=>{if(!frame&&!disposed&&documentVisible&&inView)frame=requestAnimationFrame(render);};
+  const stop=()=>{cancelAnimationFrame(frame);frame=0;};
+  function resize(){const box=element!.getBoundingClientRect();if(!box.width||!box.height)return;renderer.setSize(box.width,box.height);camera.left=-box.width/2;camera.right=box.width/2;camera.top=box.height/2;camera.bottom=-box.height/2;camera.updateProjectionMatrix();draw();}
+  const move=(event:PointerEvent)=>{targetX=(event.clientX-element!.getBoundingClientRect().left)/Math.max(element!.clientWidth,1)*2-1;start();},leave=()=>{targetX=0;start();};
   const observer=new ResizeObserver(resize);observer.observe(element);const intersection=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;if(inView)start();else stop();});intersection.observe(element);
-  const visibility=()=>{visible=!document.hidden;if(visible)start();else stop();};document.addEventListener('visibilitychange',visibility);renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointerleave',leave);renderer.domElement.addEventListener('click',click);
-  const lost=(event:Event)=>{event.preventDefault();setFallback(true);stop();};renderer.domElement.addEventListener('webglcontextlost',lost);resize();
-  return()=>{disposed=true;stop();observer.disconnect();intersection.disconnect();document.removeEventListener('visibilitychange',visibility);renderer.domElement.removeEventListener('pointermove',move);renderer.domElement.removeEventListener('pointerleave',leave);renderer.domElement.removeEventListener('click',click);renderer.domElement.removeEventListener('webglcontextlost',lost);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());renderer.dispose();renderer.domElement.remove();};
- },[signature,reducedMotion]);
- return <div className="connection-graph"><div className="graph-head"><span>{t('Aplicativos')}</span><span>{t('Destinos / portas')}</span></div><div ref={host} className="orb-canvas" role="img" aria-label={t('Relações reais entre aplicativos e conexões')}>{!graph.processes.length&&<p className="graph-empty">{t('Nenhuma conexão retornada nesta consulta.')}</p>}{!fallback&&<div className="graph-world-labels" aria-hidden="true">{[...graph.processes.map(p=>p.name),...graph.targets].map((label,index)=><span ref={element=>{labels.current[index]=element;}} key={index} title={label} className={index<graph.processes.length?'process-label':'endpoint-label'}><b>{label}</b></span>)}</div>}{fallback&&<div className="graph-fallback">{graph.processes.map(p=><button key={p.name} onClick={()=>onSelect?.(p.name)}>{p.name}<span>{p.count}</span></button>)}</div>}</div><div className="graph-caption" aria-live="polite">{hover||t('Selecione um aplicativo para ver suas conexões')}</div><div className="graph-processes" aria-label={t('Aplicativos')}>{graph.processes.slice(0,6).map(p=><button key={p.name} onClick={()=>onSelect?.(p.name)}><i className={p.review?'review':''}/>{p.name}<span>{p.count}</span></button>)}{graph.omitted>0&&<span className="graph-omitted">+{graph.omitted} {t('Aplicativos')}</span>}</div></div>;
+  const visibility=()=>{documentVisible=!document.hidden;if(documentVisible)start();else stop();},lost=(event:Event)=>{event.preventDefault();setFallback(true);stop();};
+  element.addEventListener('pointermove',move);element.addEventListener('pointerleave',leave);element.addEventListener('scroll',start,true);document.addEventListener('visibilitychange',visibility);renderer.domElement.addEventListener('webglcontextlost',lost);resize();
+  return()=>{disposed=true;stop();observer.disconnect();intersection.disconnect();element.removeEventListener('pointermove',move);element.removeEventListener('pointerleave',leave);element.removeEventListener('scroll',start,true);document.removeEventListener('visibilitychange',visibility);renderer.domElement.removeEventListener('webglcontextlost',lost);clear();renderer.dispose();renderer.domElement.remove();};
+ },[signature,current?.name,current?.review,reducedMotion]);
+ return <div ref={host} className={'connection-graph graph-explorer'+(fallback?' graph-fallback':'')} aria-label={t('Relações reais entre aplicativos e conexões')}>
+  <div className="graph-search"><Search size={14}/><input aria-label={t('Buscar conexões')} placeholder={t('Buscar aplicativo, IP, porta ou PID…')} value={search} onChange={event=>setSearch(event.target.value)}/>{search&&<button aria-label={t('Limpar busca')} onClick={()=>setSearch('')}><X size={14}/></button>}</div>
+  <div className="graph-head"><span>{t('Aplicativos')} <small>{visible.length}</small></span><span>{t('Destinos / portas')} <small>{current?.count||0}</small></span></div>
+  <div className="graph-lists"><div className="graph-apps" aria-label={t('Aplicativos')}>{visible.map((group,index)=><button ref={group===current?active:undefined} className={'graph-app'+(group===current?' selected':'')} aria-pressed={group===current} key={group.name} onClick={()=>select(group.name)} onKeyDown={event=>navigate(event,index)} title={group.name}><Monitor size={16}/><span><strong>{group.name}</strong><small>{group.review?t('Para revisar'):`PID ${[...new Set(group.rows.map(row=>row.pid))].join(', ')}`}</small></span><b>{group.count}</b></button>)}</div>
+   <div ref={targets} className="graph-targets" aria-label={t('Destinos / portas')}>{current?.rows.map(row=><button className="graph-target" key={row.id} onClick={()=>onInspect?.(row)} title={endpoint(row)}><span><strong>{endpoint(row)}</strong><small>{row.protocol} · {row.state==='Listen'?t('Em escuta'):t('Estabelecida')} · PID {row.pid}</small></span><ArrowUpRight size={15}/></button>)}</div>
+  </div>
+  {!visible.length&&<p className="graph-no-results">{t(connections.length?'Nenhuma conexão corresponde à busca.':'Nenhuma conexão retornada nesta consulta.')}</p>}
+  <div className="graph-caption" aria-live="polite">{current?`${current.name} · ${current.count} ${t('Conexões')}`:t('Selecione um aplicativo para ver suas conexões')}</div>
+ </div>;
 }

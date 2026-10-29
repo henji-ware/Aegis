@@ -1,0 +1,33 @@
+.graph-explorer,.mini-orb .graph-explorer{position:relative;isolation:isolate;display:flex;flex-direction:column;gap:10px;padding:16px 20px;min-height:0;height:100%;width:100%;overflow:hidden}
+.graph-explorer>canvas{position:absolute;inset:0;z-index:0;pointer-events:none;width:100%;height:100%}
+.graph-explorer>.graph-search,.graph-explorer>.graph-head,.graph-explorer>.graph-lists,.graph-explorer>.graph-caption{position:relative;z-index:1}
+.graph-search{display:flex;align-items:center;gap:9px;min-height:36px;flex-shrink:0;border:1px solid #29372d;background:#0b100d;border-radius:8px;padding-inline:10px;color:#829d8c}
+.graph-search input{width:100%;min-width:0;background:transparent;border:0;color:#c7d9ce;font:inherit;font-size:11px;padding:8px 0}
+.graph-search input:focus-visible{outline:0}.graph-search:focus-within{border-color:#8cb89a;box-shadow:0 0 0 1px #8cb89a}
+.graph-search button{background:transparent;border:0;color:#adc6b6;display:grid;place-items:center;min-width:30px;min-height:30px;cursor:pointer}
+.graph-explorer .graph-head{display:grid;grid-template-columns:minmax(0,42fr) minmax(0,58fr);gap:60px;padding:0;flex-shrink:0;letter-spacing:0;font-size:11px;line-height:18px;color:#a4bcad}
+.graph-head>span{display:flex;align-items:center;gap:8px;min-width:0}.graph-head small{font-variant-numeric:tabular-nums;font-size:10px;color:#758e7e}
+.graph-lists{display:grid;grid-template-columns:minmax(0,42fr) minmax(0,58fr);gap:60px;min-height:0;flex:1;direction:ltr}
+.graph-apps,.graph-targets{overflow:auto;min-width:0;min-height:0;scrollbar-width:thin;scrollbar-color:#3c5947 #0a100c;overscroll-behavior:contain;padding:2px 3px 5px}
+.graph-explorer .graph-app,.graph-explorer .graph-target{display:flex;align-items:center;gap:10px;text-align:left;min-height:49px;width:100%;margin:0 0 7px;padding:9px 10px;border:1px solid #29392f;border-radius:8px;background:#0d1510;color:#bed3c6;font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+.graph-explorer .graph-app:hover,.graph-explorer .graph-target:hover{border-color:#61816b;background:#14251a}
+.graph-explorer .graph-app.selected{border-color:#749c80;background:#162b1d;box-shadow:inset 3px 0 #98c6a5}
+.graph-app>svg{flex:none;color:#8eae99}.graph-app>span,.graph-target>span{display:grid;min-width:0;gap:4px;flex:1}
+.graph-explorer .graph-app strong,.graph-explorer .graph-target strong{font-size:12px;font-weight:450;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:#d1e0d6}
+.graph-explorer .graph-app small,.graph-explorer .graph-target small{font-size:10px;color:#89a592;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.graph-app>b{font-size:11px;font-weight:450;color:#afcbb9;font-variant-numeric:tabular-nums}.graph-target strong{font-family:Consolas,monospace}.graph-target>svg{flex:none;color:#86a791}
+.graph-explorer button:focus-visible{outline:2px solid #bad8c3;outline-offset:-2px}
+.graph-explorer .graph-caption,.mini-orb .graph-explorer .graph-caption{flex-shrink:0;min-height:18px;line-height:18px;font-size:10px;text-align:start;color:#90ac9b;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.graph-no-results{position:absolute;inset:120px 20px 35px;display:grid;place-items:center;color:#8ea897;font-size:12px;text-align:center;pointer-events:none}
+.graph-explorer.graph-fallback>canvas{display:none}
+.hero-stage{height:370px}
+.network-hero{display:block;height:auto;padding:24px;background:#0d130f}
+.network-hero>div:first-child{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;padding:0 4px 18px;border-bottom:1px solid #26382c}
+.network-hero h2{font-size:30px;margin:0;letter-spacing:-1px;display:flex;align-items:baseline;gap:10px}
+.network-hero h2>span{font-size:12px;margin:0;letter-spacing:0}.network-hero p{margin:0;font-size:11px}
+.network-hero .mini-orb{width:100%;height:380px;max-height:none;padding-top:8px}
+.network-hero .graph-explorer{padding:16px 4px 0}.network-hero .graph-head,.network-hero .graph-lists{grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:80px}
+@media(max-width:1200px){.graph-explorer,.mini-orb .graph-explorer{padding-inline:12px}.graph-explorer .graph-head,.graph-explorer .graph-lists{gap:35px}.graph-explorer .graph-app{gap:6px;padding-inline:7px}.graph-app>svg{display:none}.hero-stage{height:365px}.network-hero .mini-orb{height:370px}.network-hero .graph-head,.network-hero .graph-lists{gap:50px}}
+@media(prefers-reduced-motion:reduce){.graph-explorer button{transition:none}}
+html[data-motion=reduced] .graph-explorer button{transition:none}
+.connection-endpoint{margin-block:20px}.connection-endpoint strong{font-size:12px;overflow-wrap:anywhere;text-align:end;direction:ltr}.connection-endpoint>div{gap:18px}.connection-endpoint span{flex-shrink:0}

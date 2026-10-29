@@ -1,5 +1,7 @@
 # Aegis 1.0.1
 
+- Replaced small unlabeled graph targets with searchable application cards and readable socket buttons. Selecting an application focuses its observed destinations; click a destination to open native connection details. All observed applications remain available in scrollable lists, with arrow/Home/End keyboard navigation, visible focus, large click targets and usable controls when WebGL is unavailable. The network explorer now uses the panel width.
+
 - Connection analysis now displays a dated result panel with counts, review reasons, coverage, filters, loading and error states. The completed snapshot stays visible when live monitoring refreshes. Switching between the snapshot and live sockets is explicit; unknown process access is shown as not verified.
 - The report explicitly describes its scope: listening-port and executable-path signals. It does not query IP reputation or automatically scan executable contents. The selected executable can be scanned separately with ClamAV from its connection details.
 - Files of 2 GiB or larger are excluded before launching ClamAV and reported as not scanned because of the engine's size limit. This avoids the known Windows fstat/file-status error. Size exclusions are separate from read errors and detections; the result remains partial, never a clean verdict for an unscanned file. Other configured engine limits can also restrict smaller files.
