@@ -1,5 +1,5 @@
 """Exercise WireGuard and Aegis nftables in disposable, disconnected CI namespaces."""
-import os, sys, subprocess, pathlib, tempfile, socket, time, select
+import os, sys, subprocess, pathlib, tempfile, socket, time, select, json
 
 if sys.platform != 'linux' or os.environ.get('CI') != 'true' or os.environ.get('GITHUB_ACTIONS') != 'true' or os.geteuid() != 0:
     raise SystemExit('VPN isolation tests require the dedicated Linux CI namespace.')
@@ -33,6 +33,21 @@ try:
     run(ip,'addr','add','192.0.2.2/24','dev','physical0'); other(ip,'addr','add','192.0.2.1/24','dev','physical1')
     run(ip,'-6','addr','add','fd00:ae::2/64','dev','physical0'); other(ip,'-6','addr','add','fd00:ae::1/64','dev','physical1')
     run(ip,'link','set','physical0','up'); other(ip,'link','set','physical1','up')
+    def wait_ipv6(command, device, address):
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            interfaces = json.loads(command(ip,'-j','-6','addr','show','dev',device))
+            for interface in interfaces:
+                for item in interface.get('addr_info', []):
+                    if item.get('local') != address: continue
+                    if item.get('dadfailed'): raise RuntimeError('Fixture IPv6 duplicate-address detection failed: '+device)
+                    if not item.get('tentative'): return
+            time.sleep(.1)
+        raise RuntimeError('Fixture IPv6 address was not ready: '+device)
+    # Echo-service readiness covers the peer only. The client address must also
+    # finish kernel duplicate-address detection before baseline traffic is sent.
+    wait_ipv6(run, 'physical0', 'fd00:ae::2')
+    wait_ipv6(other, 'physical1', 'fd00:ae::1')
     run(ip,'link','add','ag1234567890','type','wireguard'); other(ip,'link','add','wg-peer','type','wireguard')
     with tempfile.TemporaryDirectory(prefix='vpn-test-',dir=root/'.build') as folder:
         a=run(wg,'genkey'); b=run(wg,'genkey'); pub_a=run(wg,'pubkey',input=a+'\n'); pub_b=run(wg,'pubkey',input=b+'\n')
