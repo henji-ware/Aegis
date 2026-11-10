@@ -12,4 +12,5 @@ const manifest=require('../runtimes.json');
  for(const name of ['THIRD-PARTY-NOTICES.txt','UI-LICENSES.txt','RELEASE-NOTES.md','VALIDATION.md','DEPENDENCY-REVIEW.md'])await fs.copyFile(path.join(root,'docs',name),path.join(out,name));
  await fs.writeFile(path.join(out,'BUILD-METADATA.json'),JSON.stringify({version,commit:process.env.GITHUB_SHA,workflowRun:'https://github.com/'+process.env.GITHUB_REPOSITORY+'/actions/runs/'+process.env.GITHUB_RUN_ID,channel:'stable',signedUpdater:true,signatureBindsVersion:true,trustedPublisherSignature:false},null,2)+'\n');
  const checks=[];for(const name of (await fs.readdir(out)).sort()){const bytes=await fs.readFile(path.join(out,name));checks.push(crypto.createHash('sha256').update(bytes).digest('hex')+'  '+name);}await fs.writeFile(path.join(out,'SHA256SUMS.txt'),checks.join('\n')+'\n');console.log('Release assets collected: '+checks.length);
+ const compact=await require('./release-layout.cjs')(out,version);console.log('Public release layout: '+JSON.stringify(compact));
 })().catch(error=>{console.error(error);process.exitCode=1});

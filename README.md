@@ -72,3 +72,5 @@ See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [dependency 
 Electron data is preserved when migrating. Compatible settings, history and firewall recovery information are copied to the Tauri store. VPN profiles need to be reimported into the new OS credential vault. An existing owned tunnel is retained for explicit recovery/disconnection when its configuration can be copied. Disconnect VPNs using the previous version before switching whenever possible. Invalid local data is preserved and recovered from its last valid backup instead of silently discarded.
 
 See [third-party notices](docs/THIRD-PARTY-NOTICES.txt) and [LICENSE](LICENSE). Corresponding engine source archives accompany releases. Build provenance can be verified using `gh attestation verify <installer> --repo henji-ware/Aegis`; verify SHA-256 values using the release checksum file as well.
+
+Release checksums, build metadata, standalone signatures, third-party sources and notices are grouped in the release sources-and-notices archive. Keep latest.json available for in-app updates; its signatures authenticate the listed packages.
