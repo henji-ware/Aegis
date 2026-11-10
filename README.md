@@ -1,6 +1,8 @@
 # Aegis
 
 [![Desktop checks](https://github.com/henji-ware/Aegis/actions/workflows/desktop.yml/badge.svg)](https://github.com/henji-ware/Aegis/actions/workflows/desktop.yml)
+[![Latest release](https://img.shields.io/github/v/release/henji-ware/Aegis)](https://github.com/henji-ware/Aegis/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Free and open-source desktop security tools, built with **Tauri 2, Rust, React, TypeScript and Three.js**. Local configuration checks, on-demand ClamAV scanning, native firewall controls, WireGuard profiles and a local Tor proxy.
 
@@ -8,17 +10,37 @@ Free and open-source desktop security tools, built with **Tauri 2, Rust, React, 
 
 ## Download
 
-Installers are published in [GitHub Releases](https://github.com/henji-ware/Aegis/releases). Aegis 1.0 uses the stable release channel. Windows packages currently have no trusted Authenticode signature; macOS packages have no Developer ID signature or notarization. Operating system application-control policies may prevent execution. GitHub provenance attestations and checksums do not replace platform code signing.
+**[Download Aegis 1.0.2](https://github.com/henji-ware/Aegis/releases/tag/v1.0.2)** — stable release. Choose one package for your platform:
 
 | Platform | Packages | Architecture |
 |---|---|---|
-| Windows | NSIS `.exe`, `.msi`, no-install `.zip` | x64 |
-| Linux | `.deb`, `.rpm`, `.AppImage` | x64 |
-| macOS | `.dmg` | Apple silicon |
+| Windows | [EXE installer](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_x64-setup.exe) · [MSI installer](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_x64_en-US.msi) · [Portable ZIP](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_windows_x64_portable.zip) | x64 |
+| Linux | [DEB](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_amd64.deb) · [RPM](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis-1.0.2-1.x86_64.rpm) · [AppImage](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_amd64.AppImage) | x64 |
+| macOS | [DMG](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_aarch64.dmg) | Apple silicon |
 
 The `.deb` targets Debian-family systems with WebKitGTK 4.1 and compatible native libraries. An installer build on Ubuntu does not imply that every Debian version or desktop environment has been tested. The release pipeline validates installation and removal on Debian 13. Package dependencies and the exact CI results are documented with each release.
 
-Extract the complete Windows ZIP and open `aegis-desktop.exe` without installing it. Keep its `engines` directory beside the executable. WebView2 remains a system prerequisite; application data uses your normal user profile. The ZIP does not register a Start menu shortcut or uninstaller.
+### Run on Windows without installing
+
+1. Download and extract the complete portable ZIP.
+2. Close any older Aegis instance, including its system-tray instance.
+3. Open `aegis-desktop.exe` inside the extracted folder. Keep the `engines` directory and all accompanying files together.
+
+WebView2 remains a system prerequisite; settings and history use your normal user profile. The portable build does not register a Start menu shortcut or uninstaller. Update it by extracting a new complete ZIP. Supported installed builds can check for updates in Settings.
+
+### Release files
+
+Version 1.0.2 reduces the published assets from **26 to 10**: the seven packages linked above, a macOS `.app.tar.gz` updater package, `latest.json`, and one [sources-and-notices archive](https://github.com/henji-ware/Aegis/releases/download/v1.0.2/Aegis_1.0.2_sources-and-notices.tar.gz).
+
+The updater uses `latest.json` and the macOS app archive automatically. The sources-and-notices archive groups corresponding third-party sources, licenses, documentation, `SHA256SUMS.txt`, build metadata and detached signatures. Signatures are also embedded in `latest.json`; separate `.sig` downloads are unnecessary for in-app updates. GitHub adds its own two source-code archives to the release page.
+
+### Changes in 1.0.2
+
+- Clearer typography, spacing and focus states, a responsive overview, and sticky headers in the connection table.
+- Search across local and remote ports, IPv6 endpoints, application names and PIDs, with surrounding whitespace ignored.
+- Named-application counts that do not count browser worker PIDs as separate applications.
+- Conservative evidence handling: unknown TCP states remain unverified, missing executable paths cannot produce a no-local-signals result, and review signals take precedence in the analysis report.
+- Fewer release downloads, with signed update compatibility and source/license availability preserved.
 
 ## Features
 
@@ -67,10 +89,16 @@ npm run package
 
 ## Validation and migration
 
-See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [dependency review](docs/DEPENDENCY-REVIEW.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot uses illustrative test fixtures, not a claim about the current device.
+The [1.0.2 release workflow](https://github.com/henji-ware/Aegis/actions/runs/42758194727) passed frontend checks, dependency audits, native desktop checks and publication. The frontend suite includes nine tests and UI coverage across ten languages; native checks exercise engines, package installation and signed updater artifacts. Browser UI tests use a mocked native transport. Native Windows UI checks run separately in CI; package and engine checks on macOS do not imply a full interactive macOS GUI test.
+
+See [validation](docs/VALIDATION.md), [security](docs/SECURITY.md), [dependency review](docs/DEPENDENCY-REVIEW.md), [Windows compatibility](docs/WINDOWS-COMPATIBILITY.md) and [release notes](docs/RELEASE-NOTES.md). The screenshot shows the 1.0.2 interface with illustrative test data.
 
 Electron data is preserved when migrating. Compatible settings, history and firewall recovery information are copied to the Tauri store. VPN profiles need to be reimported into the new OS credential vault. An existing owned tunnel is retained for explicit recovery/disconnection when its configuration can be copied. Disconnect VPNs using the previous version before switching whenever possible. Invalid local data is preserved and recovered from its last valid backup instead of silently discarded.
 
-See [third-party notices](docs/THIRD-PARTY-NOTICES.txt) and [LICENSE](LICENSE). Corresponding engine source archives accompany releases. Build provenance can be verified using `gh attestation verify <installer> --repo henji-ware/Aegis`; verify SHA-256 values using the release checksum file as well.
+## Signatures and licenses
 
-Release checksums, build metadata, standalone signatures, third-party sources and notices are grouped in the release sources-and-notices archive. Keep latest.json available for in-app updates; its signatures authenticate the listed packages.
+Update packages have version-bound signatures. Windows packages currently have no trusted Authenticode signature, and macOS packages have no Developer ID signature or notarization. Operating-system application-control policies may prevent execution; updater signatures and GitHub provenance do not replace platform publisher certificates.
+
+See [third-party notices](docs/THIRD-PARTY-NOTICES.txt) and [LICENSE](LICENSE). Aegis source is MIT licensed; bundled components retain their own licenses. Corresponding engine sources accompany releases in the sources-and-notices archive.
+
+Verify build provenance with `gh attestation verify <installer> --repo henji-ware/Aegis`. Extract `SHA256SUMS.txt` from the sources-and-notices archive to check the downloaded package's SHA-256 value. Build metadata and detached signatures are available in that same archive.
