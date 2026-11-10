@@ -36,7 +36,7 @@
   "tor": {
     "version": "15.0.26",
     "coreVersion": "0.4.9.14",
-    "base": "https://dist.torproject.org/torbrowser/15.0.26/",
+    "base": "https://archive.torproject.org/tor-package-archive/torbrowser/15.0.26/",
     "assets": {
       "win32-x64": {
         "name": "tor-expert-bundle-windows-x86_64-15.0.26.tar.gz",
