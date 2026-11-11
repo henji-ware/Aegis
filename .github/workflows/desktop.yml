@@ -78,13 +78,16 @@ jobs:
         run: |
           sudo python3 - <<'PY'
           from pathlib import Path
-          files = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.sources'), *Path('/etc/apt/sources.list.d').glob('*.list')]
+          # Hosted runners can use mirror+file URIs; their mirror lists must be
+          # updated as well as traditional sources.list and deb822 sources.
+          files = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.sources'), *Path('/etc/apt/sources.list.d').glob('*.list'), *Path('/etc/apt').glob('*mirrors*.txt')]
           for file in files:
               if file.exists():
                   text = file.read_text()
                   updated = text.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu').replace('https://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
                   if updated != text:
                       file.write_text(updated)
+                      print(f'Updated Ubuntu mirror in {file}')
           PY
           sudo -E apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60 update
           sudo -E apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60 install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libssl-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf rpm libarchive-tools squashfs-tools libfuse2 wireguard-tools nftables
