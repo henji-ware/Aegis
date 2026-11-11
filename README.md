@@ -6,7 +6,9 @@
 
 Free and open-source desktop security tools, built with **Tauri 2, Rust, React, TypeScript and Three.js**. Local configuration checks, on-demand ClamAV scanning, native firewall controls, WireGuard profiles and a local Tor proxy.
 
-![Aegis interface — illustrative test data](docs/interface.png)
+![Aegis overview — demonstration with synthetic data and no visible IP addresses](docs/interface.png)
+
+*Demonstration using synthetic data. No personal IP addresses, device names or scan results are shown.*
 
 ## Download
 
